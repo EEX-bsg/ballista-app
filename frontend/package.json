@@ -1,0 +1,34 @@
+{
+    "name": "ballista-app",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vue-tsc --noEmit && vite build",
+        "preview": "vite preview",
+        "tauri": "tauri",
+        "check": "vue-tsc --noEmit",
+        "dev:debug": "cross-env BALLISTA_LOG=debug npm run tauri dev",
+        "dev:trace": "cross-env BALLISTA_LOG=trace npm run tauri dev",
+        "dev:info": "cross-env BALLISTA_LOG=info npm run tauri dev"
+    },
+    "dependencies": {
+        "@mdi/font": "^7.4.47",
+        "@tauri-apps/api": "^1.5.3",
+        "@vitejs/plugin-vue": "^5.2.3",
+        "autoprefixer": "^10.4.18",
+        "postcss": "^8.4.35",
+        "tailwindcss": "^3.4.1",
+        "vue": "^3.4.21",
+        "vuetify": "^3.7.19"
+    },
+    "devDependencies": {
+        "@tauri-apps/cli": "^1.5.9",
+        "@types/node": "^22.13.14",
+        "cross-env": "^7.0.3",
+        "typescript": "^5.8.2",
+        "vite": "^5.0.0",
+        "vue-tsc": "^2.2.8"
+    }
+}
