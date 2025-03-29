@@ -2,7 +2,7 @@
 name = "ballista-app"
 version = "0.1.0"
 description = "Besiege Mod Manager"
-authors = ["BesiLauncher"]
+authors = ["EEX-slime"]
 license = "MPL-2.0"
 repository = "https://github.com/besiegelauncher/ballista-launcher"
 edition = "2021"
