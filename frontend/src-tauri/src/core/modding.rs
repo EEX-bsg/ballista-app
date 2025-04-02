@@ -48,9 +48,9 @@ pub struct ModdingXmlData {
 impl ModdingXmlData {
     /// XMLからJSONデータを生成する
     pub fn from_xml(xml_content: &str) -> Result<Self, String> {
-        let xml_data = parse_modding_xml(xml_content, None)?;
+        let xml_data = parse_modding_xml(xml_content)?;
 
-        Ok(ModdingXMLData {
+        Ok(ModdingXmlData {
             enabled_mods: xml_data.enabled_mods,
             disabled_mods: xml_data.disabled_mods,
             game_version: xml_data.game_version,
@@ -59,7 +59,7 @@ impl ModdingXmlData {
 
     /// JSONからXMLデータを生成する
     pub fn to_xml(&self) -> Result<String, String> {
-        let xml_data = ModdingXMLData {
+        let xml_data = ModdingXmlData {
             enabled_mods: self.enabled_mods.clone(),
             disabled_mods: self.disabled_mods.clone(),
             game_version: self.game_version.clone(),
@@ -141,7 +141,7 @@ pub fn write_modding_xml_from_json(file_path: &Path, data: &ModdingXmlData) -> R
 }
 
 /// Modding.xmlファイルを解析する
-pub fn parse_modding_xml(content: &str, file_path: Option<PathBuf>) -> Result<ModdingXmlData, String> {
+pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, String> {
     trace_fn!("parse_modding_xml(content: {} bytes)", content.len());
     
     let mut reader = Reader::from_str(content);
@@ -454,4 +454,4 @@ pub fn get_mod_info(data: &ModdingXmlData, uuid: &str) -> Option<ModInfo> {
     }
     
     None
-} 
+}

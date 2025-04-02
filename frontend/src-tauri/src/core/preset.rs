@@ -169,47 +169,6 @@ pub fn get_preset_list() -> Result<Vec<PresetInfo>, String> {
     Ok(presets)
 }
 
-/// プリセットを適用する
-pub fn apply_preset(preset_file: &Path, target_file: &Path) -> Result<(), String> {
-    trace!("apply_preset(preset_file: {}, target_file: {})", preset_file.display(), target_file.display());
-    
-    // プリセットを読み込む
-    let preset_data = load_preset(preset_file)?;
-    
-    // プリセットからModdingXmlDataを作成
-    let enabled_mods: Vec<ModInfo> = preset_data.mods.iter()
-        .filter(|m| m.enabled)
-        .cloned()
-        .collect();
-    
-    let disabled_mods: Vec<ModInfo> = preset_data.mods.iter()
-        .filter(|m| !m.enabled)
-        .cloned()
-        .collect();
-    
-    let modding_data = ModdingXmlData {
-        enabled_mods,
-        disabled_mods,
-        game_version: preset_data.game_version,
-        file_path: Some(target_file.to_path_buf()),
-    };
-    
-    // バックアップを作成
-    match backup::create_backup(target_file) {
-        Ok(_) => (),
-        Err(e) => warn!("バックアップの作成に失敗しました: {}", e),
-    }
-    
-    // 対象ファイルに書き込み
-    match crate::core::modding::write_modding_xml(target_file, &modding_data) {
-        Ok(_) => {
-            info!("プリセットを適用しました: {} -> {}", preset_file.display(), target_file.display());
-            Ok(())
-        },
-        Err(e) => Err(format!("プリセットの適用に失敗しました: {}", e)),
-    }
-}
-
 /// プリセットを削除する
 pub fn delete_preset(preset_path: &Path) -> Result<(), String> {
     trace_fn!("delete_preset(preset_path: {})", preset_path.display());

@@ -8,7 +8,6 @@
 // ライブラリクレートからのインポート
 use ballista_app::{
     core::modding::{self, ModInfo, ModdingXmlData},
-    core::backup::{self, BackupInfo},
     core::preset::{self, PresetInfo, PresetData},
     config::{self, load_config, update_config, get_log_level, AppConfig},
     error::BallistaError,
@@ -17,7 +16,7 @@ use ballista_app::{
 };
 
 use anyhow::Result;
-use log::{info, warn};
+use log::{LevelFilter, info, warn};
 use std::path::PathBuf;
 use tauri::api::dialog::blocking::FileDialogBuilder;
 use tauri::AppHandle;
@@ -57,25 +56,25 @@ pub mod file_operations {
         let content = modding::read_modding_xml(&path)?;
         
         // XMLを解析
-        modding::parse_modding_xml(&content, Some(path))
+        modding::parse_modding_xml(&content)
     }
 
     /// 指定されたパスにModding.xmlファイルを書き込む
-    #[tauri::command]
-    pub async fn write_modding_xml(file_path: String, data: ModdingXmlData) -> Result<(), String> {
-        trace_fn!("write_modding_xml(file_path: {})", file_path);
+    // #[tauri::command]
+    // pub async fn write_modding_xml(file_path: String, data: ModdingXmlData) -> Result<(), String> {
+    //     trace_fn!("write_modding_xml(file_path: {})", file_path);
         
-        let path = PathBuf::from(file_path);
+    //     let path = PathBuf::from(file_path);
         
-        // バックアップを作成
-        match backup::create_backup(&path) {
-            Ok(_) => (),
-            Err(e) => warn!("バックアップの作成に失敗しました: {}", e),
-        }
+    //     // バックアップを作成
+    //     match backup::create_backup(&path) {
+    //         Ok(_) => (),
+    //         Err(e) => warn!("バックアップの作成に失敗しました: {}", e),
+    //     }
         
-        // ファイルを書き込む
-        modding::write_modding_xml(&path, &data)
-    }
+    //     // ファイルを書き込む
+    //     modding::write_modding_xml(&path, &data)
+    // }
 
     /// パスの有効性を検証する
     #[tauri::command]
@@ -88,113 +87,6 @@ pub mod file_operations {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
         }
-    }
-}
-
-pub mod xml_operations {
-    //! XML操作系API
-    use super::*;
-
-    /// モッドの有効/無効を切り替える
-    #[tauri::command]
-    pub async fn toggle_mod_enabled(data: ModdingXmlData, uuid: String) -> Result<ModdingXmlData, String> {
-        trace_fn!("toggle_mod_enabled(uuid: {})", uuid);
-        
-        let mut data_copy = data;
-        modding::toggle_mod_enabled(&mut data_copy, &uuid)?;
-        
-        Ok(data_copy)
-    }
-
-    /// モッド情報を取得する
-    #[tauri::command]
-    pub async fn get_mod_info(data: ModdingXmlData, uuid: String) -> Result<Option<ModInfo>, String> {
-        trace_fn!("get_mod_info(uuid: {})", uuid);
-        
-        Ok(modding::get_mod_info(&data, &uuid))
-    }
-
-    /// モッドを有効化する
-    #[tauri::command]
-    pub async fn enable_mod(uuid: String) -> Result<(), String> {
-        trace_fn!("enable_mod(uuid: {})", uuid);
-        
-        // ファイルを選択
-        let file_path = file_operations::select_modding_xml().await?;
-        
-        // ファイルを読み込む
-        let mut data = file_operations::read_modding_xml(file_path.clone()).await?;
-        
-        // モッドを有効化
-        if let Some(pos) = data.disabled_mods.iter().position(|m| m.uuid == uuid) {
-            let mut mod_info = data.disabled_mods.remove(pos);
-            mod_info.enabled = true;
-            data.enabled_mods.push(mod_info);
-        }
-        
-        // ファイルを書き込む
-        file_operations::write_modding_xml(file_path, data).await
-    }
-
-    /// モッドを無効化する
-    #[tauri::command]
-    pub async fn disable_mod(uuid: String) -> Result<(), String> {
-        trace_fn!("disable_mod(uuid: {})", uuid);
-        
-        // ファイルを選択
-        let file_path = file_operations::select_modding_xml().await?;
-        
-        // ファイルを読み込む
-        let mut data = file_operations::read_modding_xml(file_path.clone()).await?;
-        
-        // モッドを無効化
-        if let Some(pos) = data.enabled_mods.iter().position(|m| m.uuid == uuid) {
-            let mut mod_info = data.enabled_mods.remove(pos);
-            mod_info.enabled = false;
-            data.disabled_mods.push(mod_info);
-        }
-        
-        // ファイルを書き込む
-        file_operations::write_modding_xml(file_path, data).await
-    }
-}
-
-pub mod backup_operations {
-    //! バックアップ系API
-    use super::*;
-
-    /// バックアップファイルを作成する
-    #[tauri::command]
-    pub async fn create_backup_file(file_path: String) -> Result<String, String> {
-        trace_fn!("create_backup_file(file_path: {})", file_path);
-        
-        let path = PathBuf::from(file_path);
-        
-        match backup::create_backup(&path) {
-            Ok(backup_path) => Ok(backup_path.to_string_lossy().to_string()),
-            Err(e) => Err(e),
-        }
-    }
-
-    /// バックアップ一覧を取得する
-    #[tauri::command]
-    pub async fn get_backup_list(file_path: String) -> Result<Vec<BackupInfo>, String> {
-        trace_fn!("get_backup_list(file_path: {})", file_path);
-        
-        let path = PathBuf::from(file_path);
-        
-        backup::get_backup_list(&path)
-    }
-
-    /// バックアップを復元する
-    #[tauri::command]
-    pub async fn restore_backup(backup_path: String, target_path: String) -> Result<(), String> {
-        trace_fn!("restore_backup(backup_path: {}, target_path: {})", backup_path, target_path);
-        
-        let backup = PathBuf::from(backup_path);
-        let target = PathBuf::from(target_path);
-        
-        backup::restore_backup(&backup, &target)
     }
 }
 
@@ -232,15 +124,15 @@ pub mod preset_operations {
     }
 
     /// プリセットを適用する
-    #[tauri::command]
-    pub async fn apply_preset(preset_path: String, target_path: String) -> Result<(), String> {
-        trace_fn!("apply_preset(preset_path: {}, target_path: {})", preset_path, target_path);
+    // #[tauri::command]
+    // pub async fn apply_preset(preset_path: String, target_path: String) -> Result<(), String> {
+    //     trace_fn!("apply_preset(preset_path: {}, target_path: {})", preset_path, target_path);
         
-        let preset = PathBuf::from(preset_path);
-        let target = PathBuf::from(target_path);
+    //     let preset = PathBuf::from(preset_path);
+    //     let target = PathBuf::from(target_path);
         
-        preset::apply_preset(&preset, &target)
-    }
+    //     preset::apply_preset(&preset, &target)
+    // }
 
     /// プリセットを削除する
     #[tauri::command]
@@ -262,8 +154,8 @@ pub mod preset_operations {
     }
 }
 
-pub mod app_operations {
-    //! アプリケーション全般の操作API
+pub mod config_operations {
+    //! 設定関連のAPI
     use super::*;
 
     /// アプリケーション設定を取得する
@@ -273,36 +165,109 @@ pub mod app_operations {
         Ok(load_config(&app_handle))
     }
 
+    /// ログレベルを取得する
+    #[tauri::command]
+    pub async fn get_log_level() -> Result<String, String> {
+        trace_fn!("get_log_level()");
+        // LevelFilterを文字列に変換して返す
+        let level = config::get_log_level();
+        let level_str = match level {
+            LevelFilter::Off => "off",
+            LevelFilter::Error => "error",
+            LevelFilter::Warn => "warn",
+            LevelFilter::Info => "info",
+            LevelFilter::Debug => "debug",
+            LevelFilter::Trace => "trace",
+        };
+        Ok(level_str.to_string())
+    }
+
     /// ログレベルを設定する
     #[tauri::command]
-    pub async fn set_log_level_command(app_handle: AppHandle, level: String) -> Result<(), String> {
-        trace_fn!("set_log_level_command(level: {})", level);
-        // 設定ファイルからコンフィグを読み込む
-        let mut config = load_config(&app_handle);
-        
-        // ログレベルを更新
-        config.logging.level = level.clone();
-        
-        // 設定を保存
-        config::save_config(&app_handle, &config);
-        
-        // 設定を反映
-        update_config(&app_handle);
-        
-        // ロガーのレベルを設定
-        set_log_level(get_log_level(&level));
-        
-        info!("ログレベルを変更しました: {}", level);
-        
-        Ok(())
+    pub async fn set_log_level(app_handle: AppHandle, level: String) -> Result<(), String> {
+        trace_fn!("set_log_level(level: {})", level);
+        config::set_log_level(&app_handle, &level)
     }
+
+    /// Besiegeのパスを取得する
+    #[tauri::command]
+    pub async fn get_besiege_path() -> Result<String, String> {
+        trace_fn!("get_besiege_path()");
+        Ok(config::get_besiege_path())
+    }
+
+    /// Besiegeのパスを設定する
+    #[tauri::command]
+    pub async fn set_besiege_path(app_handle: AppHandle, path: String) -> Result<(), String> {
+        trace_fn!("set_besiege_path(path: {})", path);
+        config::set_besiege_path(&app_handle, &path)
+    }
+
+    /// Steam Workshopのパスを取得する
+    #[tauri::command]
+    pub async fn get_workshop_path() -> Result<String, String> {
+        trace_fn!("get_workshop_path()");
+        Ok(config::get_workshop_path())
+    }
+
+    /// Steam Workshopのパスを設定する
+    #[tauri::command]
+    pub async fn set_workshop_path(app_handle: AppHandle, path: String) -> Result<(), String> {
+        trace_fn!("set_workshop_path(path: {})", path);
+        config::set_workshop_path(&app_handle, &path)
+    }
+
+    /// Ballistaデータパスを取得する
+    #[tauri::command]
+    pub async fn get_ballista_data_path() -> Result<String, String> {
+        trace_fn!("get_ballista_data_path()");
+        Ok(config::get_ballista_data_path())
+    }
+
+    /// Ballistaデータパスを設定する
+    #[tauri::command]
+    pub async fn set_ballista_data_path(app_handle: AppHandle, path: String) -> Result<(), String> {
+        trace_fn!("set_ballista_data_path(path: {})", path);
+        config::set_ballista_data_path(&app_handle, &path)
+    }
+
+    /// UIテーマを取得する
+    #[tauri::command]
+    pub async fn get_ui_theme() -> Result<String, String> {
+        trace_fn!("get_ui_theme()");
+        Ok(config::get_ui_theme())
+    }
+
+    /// UIテーマを設定する
+    #[tauri::command]
+    pub async fn set_ui_theme(app_handle: AppHandle, theme: String) -> Result<(), String> {
+        trace_fn!("set_ui_theme(theme: {})", theme);
+        config::set_ui_theme(&app_handle, &theme)
+    }
+
+    /// 言語設定を取得する
+    #[tauri::command]
+    pub async fn get_language() -> Result<String, String> {
+        trace_fn!("get_language()");
+        Ok(config::get_language())
+    }
+
+    /// 言語設定を設定する
+    #[tauri::command]
+    pub async fn set_language(app_handle: AppHandle, language: String) -> Result<(), String> {
+        trace_fn!("set_language(language: {})", language);
+        config::set_language(&app_handle, &language)
+    }
+}
+
+pub mod app_operations {
+    //! アプリケーション全般の操作API
+    use super::*;
 
     /// ログメッセージを記録する
     /// Vue側からのログを保存する用
     #[tauri::command]
     pub fn log_message(level: String, message: String) {
-        // 二重トレースになっちゃうから無効化
-        // trace_fn!("log_message(level: {}, message: {})", level, message);
         match level.to_lowercase().as_str() {
             "trace" => log::trace!("{}", message),
             "debug" => log::debug!("{}", message),
@@ -313,39 +278,11 @@ pub mod app_operations {
         }
     }
 
-    /// ログを取得する
-    #[tauri::command]
-    pub async fn get_logs(count: Option<usize>) -> Vec<String> {
-        trace_fn!("get_logs(count: {:?})", count);
-        // ここでログを取得する実装
-        // 実際のログはtauri-plugin-logが保存している
-        vec!["ログの実装は別途行います".to_string()]
-    }
-
     /// エラーハンドリングAPI
     #[tauri::command]
     pub fn handle_error(error_msg: String) -> Result<Option<String>, String> {
-        trace_fn!("handle_error(error_msg: {})", error_msg);
-        
         let error: BallistaError = error_msg.into();
         error.log();
         error.try_recover()
-    }
-}
-
-pub mod modding_integration {
-    //! モッド統合系API
-    use super::*;
-
-    /// Modding.xmlを読み込む統合API
-    #[tauri::command]
-    pub async fn load_modding_xml() -> Result<ModdingXmlData, String> {
-        trace_fn!("load_modding_xml()");
-        
-        // ファイルを選択
-        let file_path = file_operations::select_modding_xml().await?;
-        
-        // ファイルを読み込む
-        file_operations::read_modding_xml(file_path).await
     }
 }

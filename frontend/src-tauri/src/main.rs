@@ -25,15 +25,8 @@ use tauri::{AppHandle, Manager};
 
 // ログレベルを取得する関数
 fn get_current_log_level() -> LevelFilter {
-    // APP_CONFIGからログレベルを取得
-    if let Ok(app_config) = APP_CONFIG.lock() {
-        if let Some(config) = &*app_config {
-            return get_log_level(&config.logging.level);
-        }
-    }
-    
-    // デフォルトのログレベル
-    LevelFilter::Info
+    // 設定からログレベルを取得
+    get_log_level()
 }
 
 // 更新可能なロガーを設定
@@ -108,41 +101,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // ファイル操作系API
             api::file_operations::select_modding_xml,
             api::file_operations::read_modding_xml,
-            api::file_operations::write_modding_xml,
+            // api::file_operations::write_modding_xml,
             api::file_operations::validate_path,
             
             // XML操作系API
-            api::xml_operations::toggle_mod_enabled,
-            api::xml_operations::get_mod_info,
-            api::xml_operations::enable_mod,
-            api::xml_operations::disable_mod,
-            
-            // バックアップ系API
-            api::backup_operations::create_backup_file,
-            api::backup_operations::get_backup_list,
-            api::backup_operations::restore_backup,
+            // api::xml_operations::toggle_mod_enabled,
+            // api::xml_operations::get_mod_info,
+            // api::xml_operations::enable_mod,
+            // api::xml_operations::disable_mod,
             
             // プリセット系API
-            api::preset_operations::save_preset,
-            api::preset_operations::get_preset_list,
-            api::preset_operations::load_preset,
-            api::preset_operations::load_presets,
-            api::preset_operations::apply_preset,
-            api::preset_operations::delete_preset,
+            // api::preset_operations::save_preset,
+            // api::preset_operations::get_preset_list,
+            // api::preset_operations::load_preset,
+            // api::preset_operations::load_presets,
+            // api::preset_operations::apply_preset,
+            // api::preset_operations::delete_preset,
+            
+            // 設定関連API
+            api::config_operations::get_config,
+            api::config_operations::get_log_level,
+            api::config_operations::set_log_level,
+            api::config_operations::get_besiege_path,
+            api::config_operations::set_besiege_path,
+            api::config_operations::get_workshop_path,
+            api::config_operations::set_workshop_path,
+            api::config_operations::get_ballista_data_path,
+            api::config_operations::set_ballista_data_path,
+            api::config_operations::get_ui_theme,
+            api::config_operations::set_ui_theme,
+            api::config_operations::get_language,
+            api::config_operations::set_language,
             
             // アプリケーション操作系API
-            api::app_operations::get_logs,
-            api::app_operations::get_config,
-            api::app_operations::set_log_level_command,
             api::app_operations::log_message,
             api::app_operations::handle_error,
-            
-            // 統合API
-            api::modding_integration::load_modding_xml
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
         
     info!("アプリケーションを終了しています");
     Ok(())
-} 
+}
