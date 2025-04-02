@@ -166,28 +166,28 @@ pub mod config_operations {
     }
 
     /// ログレベルを取得する
-    #[tauri::command]
-    pub async fn get_log_level() -> Result<String, String> {
-        trace_fn!("get_log_level()");
-        // LevelFilterを文字列に変換して返す
-        let level = config::get_log_level();
-        let level_str = match level {
-            LevelFilter::Off => "off",
-            LevelFilter::Error => "error",
-            LevelFilter::Warn => "warn",
-            LevelFilter::Info => "info",
-            LevelFilter::Debug => "debug",
-            LevelFilter::Trace => "trace",
-        };
-        Ok(level_str.to_string())
-    }
+    // #[tauri::command]
+    // pub async fn get_log_level() -> Result<String, String> {
+    //     trace_fn!("get_log_level()");
+    //     // LevelFilterを文字列に変換して返す
+    //     let level = config::get_log_level();
+    //     let level_str = match level {
+    //         LevelFilter::Off => "off",
+    //         LevelFilter::Error => "error",
+    //         LevelFilter::Warn => "warn",
+    //         LevelFilter::Info => "info",
+    //         LevelFilter::Debug => "debug",
+    //         LevelFilter::Trace => "trace",
+    //     };
+    //     Ok(level_str.to_string())
+    // }
 
     /// ログレベルを設定する
-    #[tauri::command]
-    pub async fn set_log_level(app_handle: AppHandle, level: String) -> Result<(), String> {
-        trace_fn!("set_log_level(level: {})", level);
-        config::set_log_level(&app_handle, &level)
-    }
+    // #[tauri::command]
+    // pub async fn set_log_level(app_handle: AppHandle, level: String) -> Result<(), String> {
+    //     trace_fn!("set_log_level(level: {})", level);
+    //     config::set_log_level(&app_handle, &level)
+    // }
 
     /// Besiegeのパスを取得する
     #[tauri::command]

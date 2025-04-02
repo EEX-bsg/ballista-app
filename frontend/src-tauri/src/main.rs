@@ -120,8 +120,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             // 設定関連API
             api::config_operations::get_config,
-            api::config_operations::get_log_level,
-            api::config_operations::set_log_level,
+            // api::config_operations::get_log_level,
+            // api::config_operations::set_log_level,
             api::config_operations::get_besiege_path,
             api::config_operations::set_besiege_path,
             api::config_operations::get_workshop_path,
