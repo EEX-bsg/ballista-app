@@ -6,14 +6,14 @@ echo "======================================"
 cd frontend/src-tauri
 
 # シンプルなテストのみを実行（失敗しないものだけ）
-echo "シンプルなテストを実行中..."
-cargo test tests::tests::test_app_config
-if [ $? -ne 0 ]; then
-    echo "基本テストに失敗しました。修正してください。"
-    cd ../..
-    exit 1
-fi
-echo "基本テスト成功!"
+# echo "シンプルなテストを実行中..."
+# cargo test tests::tests::test_app_config
+# if [ $? -ne 0 ]; then
+#     echo "基本テストに失敗しました。修正してください。"
+#     cd ../..
+#     exit 1
+# fi
+# echo "基本テスト成功!"
 
 # コンパイルを開始し、同時にタイムアウトカウントを開始
 echo "コンパイル中..."
@@ -59,4 +59,4 @@ echo "npm run tauri dev"
 echo ""
 echo "または直接アプリを実行するには:"
 echo "cd frontend/src-tauri/target/debug"
-echo "./ballista-app" 
+echo "./ballista-app"

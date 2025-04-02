@@ -47,6 +47,7 @@ lerna-debug.log*
 !.vscode/launch.json
 *.swp
 *.swo
+*.code-workspace
 
 # OS固有のファイル
 .DS_Store
