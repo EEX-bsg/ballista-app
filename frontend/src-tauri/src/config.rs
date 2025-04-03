@@ -154,12 +154,22 @@ pub fn load_config(app_handle: &AppHandle) -> AppConfig {
 pub fn save_config(app_handle: &AppHandle, config: &AppConfig) {
     let config_path = get_config_file_path(app_handle);
     
-    match serde_json::to_string_pretty(config) {
-        Ok(json) => {
-            if let Err(e) = fs::write(&config_path, json) {
-                error!("Failed to write config file: {}", e);
-            } else {
-                debug!("Config file saved to: {}", config_path.display());
+    // カスタムフォーマッタを使用してスペース4つのインデントを適用
+    let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+    let mut buf = Vec::new();
+    let mut serializer = serde_json::Serializer::with_formatter(&mut buf, formatter);
+    
+    match config.serialize(&mut serializer) {
+        Ok(_) => {
+            match String::from_utf8(buf) {
+                Ok(json) => {
+                    if let Err(e) = fs::write(&config_path, json) {
+                        error!("Failed to write config file: {}", e);
+                    } else {
+                        debug!("Config file saved to: {}", config_path.display());
+                    }
+                },
+                Err(e) => error!("Failed to convert serialized config to UTF-8: {}", e),
             }
         },
         Err(e) => error!("Failed to serialize config: {}", e),
