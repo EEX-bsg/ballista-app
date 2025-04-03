@@ -53,16 +53,31 @@
                                             <v-card-text>
                                                 <v-row>
                                                     <v-col cols="12">
-                                                        <v-text-field v-model="configUpdate.path.besiege_path"
-                                                            label="Besiegeのパス" @update:model-value="updateBesiegePath"></v-text-field>
+                                                        <div class="d-flex align-center">
+                                                            <v-text-field v-model="configUpdate.path.besiege_path"
+                                                                label="Besiegeのパス" @update:model-value="updateBesiegePath" class="flex-grow-1 mr-2"></v-text-field>
+                                                            <v-btn color="primary" icon @click="selectBesiegeExe" title="Besiege.exeを選択">
+                                                                <v-icon>mdi-folder-open</v-icon>
+                                                            </v-btn>
+                                                        </div>
                                                     </v-col>
                                                     <v-col cols="12">
-                                                        <v-text-field v-model="configUpdate.path.workshop_dir_path"
-                                                            label="Steam Workshopのパス" @update:model-value="updateWorkshopPath"></v-text-field>
+                                                        <div class="d-flex align-center">
+                                                            <v-text-field v-model="configUpdate.path.workshop_dir_path"
+                                                                label="Steam Workshopのパス" @update:model-value="updateWorkshopPath" class="flex-grow-1 mr-2"></v-text-field>
+                                                            <v-btn color="primary" icon @click="selectWorkshopDir" title="Workshopディレクトリを選択">
+                                                                <v-icon>mdi-folder-open</v-icon>
+                                                            </v-btn>
+                                                        </div>
                                                     </v-col>
                                                     <v-col cols="12">
-                                                        <v-text-field v-model="configUpdate.path.ballista_data_path"
-                                                            label="Ballistaデータパス" @update:model-value="updateBallistaDataPath"></v-text-field>
+                                                        <div class="d-flex align-center">
+                                                            <v-text-field v-model="configUpdate.path.ballista_data_path"
+                                                                label="Ballistaデータパス" @update:model-value="updateBallistaDataPath" class="flex-grow-1 mr-2"></v-text-field>
+                                                            <v-btn color="primary" icon @click="selectBallistaDataDir" title="Ballistaデータディレクトリを選択">
+                                                                <v-icon>mdi-folder-open</v-icon>
+                                                            </v-btn>
+                                                        </div>
                                                     </v-col>
                                                     <v-col cols="12" md="6">
                                                         <v-select v-model="configUpdate.ui.theme"
@@ -73,11 +88,6 @@
                                                         <v-select v-model="configUpdate.ui.language"
                                                             :items="['ja', 'en']" label="言語"
                                                             @update:model-value="updateLanguage"></v-select>
-                                                    </v-col>
-                                                    <v-col cols="12">
-                                                        <v-select v-model="configUpdate.logging.level"
-                                                            :items="['trace', 'debug', 'info', 'warn', 'error', 'off']"
-                                                            label="ログレベル"></v-select>
                                                     </v-col>
                                                 </v-row>
                                             </v-card-text>
@@ -131,6 +141,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
+import { open } from '@tauri-apps/api/dialog';
 
 // 状態管理
 const activeTab = ref('config');
@@ -306,6 +317,73 @@ async function updateLanguage(): Promise<void> {
         await getConfig(); // 設定を再取得して最新状態を反映
     } catch (error) {
         logMessage('error', `言語設定更新エラー: ${error}`);
+    }
+}
+
+/**
+ * Besiegeの実行ファイル（Besiege.exe）を選択するダイアログを表示する
+ * ダイアログでは.exe拡張子のファイルのみが表示される
+ */
+async function selectBesiegeExe(): Promise<void> {
+    try {
+        logMessage('info', 'Besiegeの実行ファイルを選択中...');
+        const selected = await open({
+            multiple: false,
+            filters: [{
+                name: 'Besiege.exe',
+                extensions: ['exe']
+            }],
+            defaultPath: configUpdate.value.path.besiege_path || undefined
+        });
+        
+        if (selected && typeof selected === 'string') {
+            configUpdate.value.path.besiege_path = selected;
+            await updateBesiegePath();
+        }
+    } catch (error) {
+        logMessage('error', `ファイル選択エラー: ${error}`);
+    }
+}
+
+/**
+ * Steam Workshopディレクトリを選択するダイアログを表示する
+ */
+async function selectWorkshopDir(): Promise<void> {
+    try {
+        logMessage('info', 'Steam Workshopディレクトリを選択中...');
+        const selected = await open({
+            multiple: false,
+            directory: true,
+            defaultPath: configUpdate.value.path.workshop_dir_path || undefined
+        });
+        
+        if (selected && typeof selected === 'string') {
+            configUpdate.value.path.workshop_dir_path = selected;
+            await updateWorkshopPath();
+        }
+    } catch (error) {
+        logMessage('error', `ディレクトリ選択エラー: ${error}`);
+    }
+}
+
+/**
+ * Ballistaデータディレクトリを選択するダイアログを表示する
+ */
+async function selectBallistaDataDir(): Promise<void> {
+    try {
+        logMessage('info', 'Ballistaデータディレクトリを選択中...');
+        const selected = await open({
+            multiple: false,
+            directory: true,
+            defaultPath: configUpdate.value.path.ballista_data_path || undefined
+        });
+        
+        if (selected && typeof selected === 'string') {
+            configUpdate.value.path.ballista_data_path = selected;
+            await updateBallistaDataPath();
+        }
+    } catch (error) {
+        logMessage('error', `ディレクトリ選択エラー: ${error}`);
     }
 }
 
