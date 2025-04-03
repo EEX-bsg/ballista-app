@@ -16,11 +16,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 // 定数定義
-const MAX_LOG_FILES: usize = 10;  // 保持するログファイルの最大数
 const LATEST_LOG_FILENAME: &str = "latest.log";
 
-// グローバルなログレベル
+// グローバル変数
 static LOG_LEVEL: Mutex<LevelFilter> = Mutex::new(LevelFilter::Info);
+static MAX_LOG_FILES: Mutex<usize> = Mutex::new(10);  // 保持するログファイルの最大数（デフォルト10）
 
 /// カスタムロガー構造体
 ///
@@ -193,6 +193,31 @@ impl Log for CustomLogger {
     }
 }
 
+/// 保持するログファイルの最大数を設定する
+///
+/// # 引数
+///
+/// * `max_files` - 設定する最大ファイル数
+pub fn set_max_log_files(max_files: usize) {
+    if let Ok(mut current_max) = MAX_LOG_FILES.lock() {
+        *current_max = max_files;
+        println!("[Logger] 最大ログファイル数を設定しました: {}", max_files);
+    }
+}
+
+/// 現在の最大ログファイル数を取得する
+///
+/// # 戻り値
+///
+/// 現在設定されている最大ログファイル数
+pub fn get_max_log_files() -> usize {
+    if let Ok(current_max) = MAX_LOG_FILES.lock() {
+        *current_max
+    } else {
+        10 // デフォルト値
+    }
+}
+
 // 古いログファイルを管理する（削除したファイル数を返す）
 fn manage_log_files(log_dir: &Path) -> std::io::Result<usize> {
     println!("[Logger] 古いログファイルを管理します: {}", log_dir.display());
@@ -233,10 +258,13 @@ fn manage_log_files(log_dir: &Path) -> std::io::Result<usize> {
     // 削除したファイル数
     let mut deleted_count = 0;
     
+    // 現在の最大ログファイル数を取得
+    let max_files = get_max_log_files();
+    
     // 最大数を超えた古いファイルを削除
-    if log_files.len() > MAX_LOG_FILES {
-        let to_remove = log_files.len() - MAX_LOG_FILES;
-        println!("[Logger] 削除対象ファイル数: {}", to_remove);
+    if log_files.len() > max_files {
+        let to_remove = log_files.len() - max_files;
+        println!("[Logger] 削除対象ファイル数: {} (最大保持数: {})", to_remove, max_files);
         
         for file in log_files.iter().take(to_remove) {
             println!("[Logger] 削除: {}", file.display());
@@ -322,4 +350,4 @@ pub fn set_log_level(level: LevelFilter) {
         log::set_max_level(level);
         println!("[Logger] ログレベルを設定しました: {:?}", level);
     }
-} 
+}

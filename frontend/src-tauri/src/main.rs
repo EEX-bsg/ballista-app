@@ -89,6 +89,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             set_log_level(level);
             info!("ログレベルを設定しました: {:?}", level);
             
+            // 最大ログファイル数を設定ファイルから取得して更新
+            let config = load_config(&app.app_handle());
+            logger::set_max_log_files(config.logging.max_files);
+            info!("最大ログファイル数を設定しました: {}", config.logging.max_files);
+            
             Ok(())
         })
         .on_page_load(|window, _| {

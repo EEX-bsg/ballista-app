@@ -70,7 +70,10 @@ pub fn handle_config_changes(event: Event, app_handle: &AppHandle) {
                     // 設定を再読み込み
                     update_config(app_handle);
                     
-                    // ロガーのレベルを更新（Tauriのプラグインを使用）
+                    // ロガーの設定を更新
+                    update_logger_settings(app_handle);
+                    
+                    // フロントエンドにログ更新イベントを送信
                     app_handle.emit_all("log:update", ()).unwrap();
                     
                     break;
@@ -79,4 +82,30 @@ pub fn handle_config_changes(event: Event, app_handle: &AppHandle) {
         }
         _ => {}
     }
-} 
+}
+
+/// ロガーの設定を更新する
+///
+/// 設定ファイルからロガーのレベルと最大ログファイル数を取得し、
+/// ロガーの設定を更新します。
+///
+/// # 引数
+///
+/// * `app_handle` - Tauriアプリケーションのハンドル
+fn update_logger_settings(app_handle: &AppHandle) {
+    use crate::config::{get_log_level, load_config};
+    use crate::logger::{set_log_level, set_max_log_files};
+    
+    // 設定を読み込み
+    let config = load_config(app_handle);
+    
+    // ログレベルを更新
+    let log_level = get_log_level();
+    set_log_level(log_level);
+    debug!("ロガーのレベルを更新しました: {:?}", log_level);
+    
+    // 最大ログファイル数を更新
+    let max_files = config.logging.max_files;
+    set_max_log_files(max_files);
+    debug!("最大ログファイル数を更新しました: {}", max_files);
+}
