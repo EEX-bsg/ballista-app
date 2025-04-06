@@ -59,7 +59,7 @@ pub mod file_operations {
         modding::parse_modding_xml(&content)
     }
 
-    /// 指定されたパスにModding.xmlファイルを書き込む
+    // /// 指定されたパスにModding.xmlファイルを書き込む
     // #[tauri::command]
     // pub async fn write_modding_xml(file_path: String, data: ModdingXmlData) -> Result<(), String> {
     //     trace_fn!("write_modding_xml(file_path: {})", file_path);
@@ -76,18 +76,18 @@ pub mod file_operations {
     //     modding::write_modding_xml(&path, &data)
     // }
 
-    /// パスの有効性を検証する
-    #[tauri::command]
-    pub async fn validate_path(path: String) -> Result<bool, String> {
-        trace_fn!("validate_path(path: {})", path);
+    // /// パスの有効性を検証する
+    // #[tauri::command]
+    // pub async fn validate_path(path: String) -> Result<bool, String> {
+    //     trace_fn!("validate_path(path: {})", path);
         
-        let path_obj = PathBuf::from(path);
+    //     let path_obj = PathBuf::from(path);
         
-        match modding::validate_path(&path_obj) {
-            Ok(_) => Ok(true),
-            Err(e) => Err(e),
-        }
-    }
+    //     match modding::validate_path(&path_obj) {
+    //         Ok(_) => Ok(true),
+    //         Err(e) => Err(e),
+    //     }
+    // }
 }
 
 pub mod preset_operations {

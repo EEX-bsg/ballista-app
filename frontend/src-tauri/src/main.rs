@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             api::file_operations::select_modding_xml,
             api::file_operations::read_modding_xml,
             // api::file_operations::write_modding_xml,
-            api::file_operations::validate_path,
+            // api::file_operations::validate_path,
             
             // XML操作系API
             // api::xml_operations::toggle_mod_enabled,

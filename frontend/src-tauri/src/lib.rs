@@ -21,6 +21,9 @@ pub mod logger;
 pub mod error;
 pub mod config;
 
+// ユーティリティ関数
+pub mod utils;
+
 // ファイル監視システム
 pub mod watcher;
 

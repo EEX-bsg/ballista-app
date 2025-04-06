@@ -17,6 +17,9 @@ use quick_xml::Writer;
 use serde::{Deserialize, Serialize};
 use log::{debug, info};
 
+use crate::utils::validate_path;
+
+
 /// MOD情報を表す構造体
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModInfo {
@@ -67,37 +70,6 @@ impl ModdingXmlData {
 
         generate_xml(&xml_data)
     }
-}
-
-/// パスが有効かどうかを検証する
-pub fn validate_path(path: &Path) -> Result<(), String> {
-    trace_fn!("validate_path(path: {})", path.display());
-    
-    // パスの形式チェック
-    if path.to_string_lossy().is_empty() {
-        return Err("パスが空です".to_string());
-    }
-    
-    // ディレクトリの存在確認
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            return Err(format!("親ディレクトリが存在しません: {}", parent.display()));
-        }
-    }
-    
-    // ファイルの存在確認（存在する場合はアクセス権限確認）
-    if path.exists() {
-        match fs::metadata(path) {
-            Ok(metadata) => {
-                if metadata.permissions().readonly() && !path.to_string_lossy().contains(".bak") {
-                    return Err(format!("ファイルは読み取り専用です: {}", path.display()));
-                }
-            }
-            Err(e) => return Err(format!("ファイルのメタデータの取得に失敗しました: {}", e)),
-        }
-    }
-    
-    Ok(())
 }
 
 /// Modding.xmlファイルを読み込む
