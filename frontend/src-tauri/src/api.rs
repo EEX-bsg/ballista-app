@@ -41,7 +41,7 @@ pub mod file_operations {
         // ファイルを読み込む
         match modding::read_modding_xml(&file_path) {
             Ok(_content) => Ok(file_path.to_string_lossy().to_string()),
-            Err(e) => Err(e),
+            Err(e) => Err(e.to_string()),
         }
     }
 
@@ -53,10 +53,12 @@ pub mod file_operations {
         let path = PathBuf::from(file_path);
         
         // ファイルを読み込む
-        let content = modding::read_modding_xml(&path)?;
+        let content = modding::read_modding_xml(&path)
+            .map_err(|e| e.to_string())?;
         
         // XMLを解析
         modding::parse_modding_xml(&content)
+            .map_err(|e| e.to_string())
     }
 
     // /// 指定されたパスにModding.xmlファイルを書き込む
@@ -280,9 +282,9 @@ pub mod app_operations {
 
     /// エラーハンドリングAPI
     #[tauri::command]
-    pub fn handle_error(error_msg: String) -> Result<Option<String>, String> {
+    pub fn handle_error(error_msg: String) -> Result<String, String> {
         let error: BallistaError = error_msg.into();
         error.log();
-        error.try_recover()
+        Ok(error.user_message())
     }
 }

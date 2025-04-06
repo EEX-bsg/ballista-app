@@ -10,7 +10,6 @@
 use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::{Read};
-use anyhow::Result;
 use quick_xml::events::{Event, BytesStart, BytesEnd, BytesDecl};
 use quick_xml::Reader;
 use quick_xml::Writer;
@@ -18,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use log::{debug, info};
 
 use crate::utils::validate_path;
+use crate::error::BallistaError;
+use crate::trace_fn;
 
 
 /// MOD情報を表す構造体
@@ -50,7 +51,7 @@ pub struct ModdingXmlData {
 
 impl ModdingXmlData {
     /// XMLからJSONデータを生成する
-    pub fn from_xml(xml_content: &str) -> Result<Self, String> {
+    pub fn from_xml(xml_content: &str) -> Result<Self, BallistaError> {
         let xml_data = parse_modding_xml(xml_content)?;
 
         Ok(ModdingXmlData {
@@ -61,7 +62,7 @@ impl ModdingXmlData {
     }
 
     /// JSONからXMLデータを生成する
-    pub fn to_xml(&self) -> Result<String, String> {
+    pub fn to_xml(&self) -> Result<String, BallistaError> {
         let xml_data = ModdingXmlData {
             enabled_mods: self.enabled_mods.clone(),
             disabled_mods: self.disabled_mods.clone(),
@@ -73,7 +74,7 @@ impl ModdingXmlData {
 }
 
 /// Modding.xmlファイルを読み込む
-pub fn read_modding_xml(file_path: &Path) -> Result<String, String> {
+pub fn read_modding_xml(file_path: &Path) -> Result<String, BallistaError> {
     trace_fn!("read_modding_xml(file_path: {})", file_path.display());
     
     // パス検証
@@ -81,39 +82,38 @@ pub fn read_modding_xml(file_path: &Path) -> Result<String, String> {
     
     // ファイルが存在することを確認
     if !file_path.exists() {
-        return Err(format!("ファイルが存在しません: {}", file_path.display()));
+        return Err(BallistaError::FileError(
+            format!("ファイルが存在しません: {}", file_path.display())
+        ));
     }
     
     // ファイル内容を読み込み
     let mut content = String::new();
-    match fs::File::open(file_path) {
-        Ok(mut file) => {
-            if let Err(e) = file.read_to_string(&mut content) {
-                return Err(format!("ファイルの読み込みに失敗しました: {}", e));
-            }
-        }
-        Err(e) => return Err(format!("ファイルを開けませんでした: {}", e)),
-    }
+    let mut file = fs::File::open(file_path)
+        .map_err(|e| BallistaError::FileError(format!("ファイルを開けませんでした: {}", e)))?;
+    
+    file.read_to_string(&mut content)
+        .map_err(|e| BallistaError::FileError(format!("ファイルの読み込みに失敗しました: {}", e)))?;
     
     debug!("Modding.xmlファイルを読み込みました: {} バイト", content.len());
     Ok(content)
 }
 
 /// Modding.xmlファイルを読み込みJSONデータを返す
-pub fn read_modding_xml_as_json(file_path: &Path) -> Result<ModdingXmlData, String> {
+pub fn read_modding_xml_as_json(file_path: &Path) -> Result<ModdingXmlData, BallistaError> {
     let xml_content = read_modding_xml(file_path)?;
     ModdingXmlData::from_xml(&xml_content)
 }
 
 /// JSONデータをModding.xmlファイルに書き込む
-pub fn write_modding_xml_from_json(file_path: &Path, data: &ModdingXmlData) -> Result<(), String> {
+pub fn write_modding_xml_from_json(file_path: &Path, data: &ModdingXmlData) -> Result<(), BallistaError> {
     let xml_content = data.to_xml()?;
     fs::write(file_path, xml_content)
-        .map_err(|e| format!("ファイルの書き込みに失敗しました: {}", e))
+        .map_err(|e| BallistaError::FileError(format!("ファイルの書き込みに失敗しました: {}", e)))
 }
 
 /// Modding.xmlファイルを解析する
-pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, String> {
+pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, BallistaError> {
     trace_fn!("parse_modding_xml(content: {} bytes)", content.len());
     
     let mut reader = Reader::from_str(content);
@@ -146,7 +146,7 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, String> {
                                     in_disabled_mods = false;
                                 }
                                 Ok(Event::Eof) => break,
-                                Err(e) => return Err(format!("XMLの解析エラー: {}", e)),
+                                Err(e) => return Err(BallistaError::XmlError(format!("XMLの解析エラー: {}", e))),
                                 _ => (),
                             }
                         }
@@ -160,7 +160,7 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, String> {
                 }
             }
             Ok(Event::Eof) => break,
-            Err(e) => return Err(format!("XMLの解析エラー: {}", e)),
+            Err(e) => return Err(BallistaError::XmlError(format!("XMLの解析エラー: {}", e))),
             _ => (),
         }
         buf.clear();
@@ -230,7 +230,7 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, String> {
                                     in_mods = false;
                                 }
                                 Ok(Event::Eof) => break,
-                                Err(e) => return Err(format!("XMLの解析エラー: {}", e)),
+                                Err(e) => return Err(BallistaError::XmlError(format!("XMLの解析エラー: {}", e))),
                                 _ => (),
                             }
                         }
@@ -238,7 +238,7 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, String> {
                 }
             }
             Ok(Event::Eof) => break,
-            Err(e) => return Err(format!("XMLの解析エラー: {}", e)),
+            Err(e) => return Err(BallistaError::XmlError(format!("XMLの解析エラー: {}", e))),
             _ => (),
         }
         buf.clear();
@@ -266,54 +266,54 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, String> {
 /// # 戻り値
 ///
 /// 生成されたXML文字列、またはエラーメッセージ
-pub fn generate_xml(data: &ModdingXmlData) -> Result<String, String> {
+pub fn generate_xml(data: &ModdingXmlData) -> Result<String, BallistaError> {
     trace_fn!("generate_xml(data)");
     
     let mut writer = Writer::new(Vec::new());
     
     // XML宣言を書き込む
     writer.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))
-        .map_err(|e| format!("XML宣言の書き込みに失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("XML宣言の書き込みに失敗しました: {}", e)))?;
     
     // ルート要素を開始
     let root = BytesStart::new("StringDict");
     writer.write_event(Event::Start(root))
-        .map_err(|e| format!("ルート要素の書き込みに失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("ルート要素の書き込みに失敗しました: {}", e)))?;
     
     // disabled-modsセクションを書き込む
     let mut disabled_elem = BytesStart::new("StringArray");
     disabled_elem.push_attribute(("key", "disabled-mods"));
     writer.write_event(Event::Start(disabled_elem))
-        .map_err(|e| format!("disabled-mods要素の書き込みに失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("disabled-mods要素の書き込みに失敗しました: {}", e)))?;
     
     // 無効化されたMODのUUIDを書き込む
     for mod_info in &data.disabled_mods {
         let string_elem = BytesStart::new("String");
         writer.write_event(Event::Start(string_elem))
-            .map_err(|e| format!("String要素の書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("String要素の書き込みに失敗しました: {}", e)))?;
         
         writer.write_event(Event::Text(quick_xml::events::BytesText::new(&mod_info.uuid)))
-            .map_err(|e| format!("MOD UUID書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("MOD UUID書き込みに失敗しました: {}", e)))?;
         
         writer.write_event(Event::End(BytesEnd::new("String")))
-            .map_err(|e| format!("String要素終了の書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("String要素終了の書き込みに失敗しました: {}", e)))?;
     }
     
     writer.write_event(Event::End(BytesEnd::new("StringArray")))
-        .map_err(|e| format!("StringArray要素終了の書き込みに失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("StringArray要素終了の書き込みに失敗しました: {}", e)))?;
     
     // maintenance-lastModsセクションを書き込む
     let mut mods_elem = BytesStart::new("StringArray");
     mods_elem.push_attribute(("key", "maintenance-lastMods"));
     writer.write_event(Event::Start(mods_elem))
-        .map_err(|e| format!("maintenance-lastMods要素の書き込みに失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("maintenance-lastMods要素の書き込みに失敗しました: {}", e)))?;
     
     // すべてのMOD情報を書き込む
     let all_mods = [&data.enabled_mods[..], &data.disabled_mods[..]].concat();
     for mod_info in all_mods {
         let string_elem = BytesStart::new("String");
         writer.write_event(Event::Start(string_elem))
-            .map_err(|e| format!("String要素の書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("String要素の書き込みに失敗しました: {}", e)))?;
         
         // MOD情報を~で区切って書き込む
         let mod_str = if mod_info.source == "W" && mod_info.workshop_id.is_some() {
@@ -332,36 +332,36 @@ pub fn generate_xml(data: &ModdingXmlData) -> Result<String, String> {
         };
         
         writer.write_event(Event::Text(quick_xml::events::BytesText::new(&mod_str)))
-            .map_err(|e| format!("MOD情報書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("MOD情報書き込みに失敗しました: {}", e)))?;
         
         writer.write_event(Event::End(BytesEnd::new("String")))
-            .map_err(|e| format!("String要素終了の書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("String要素終了の書き込みに失敗しました: {}", e)))?;
     }
     
     writer.write_event(Event::End(BytesEnd::new("StringArray")))
-        .map_err(|e| format!("StringArray要素終了の書き込みに失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("StringArray要素終了の書き込みに失敗しました: {}", e)))?;
     
     // ゲームバージョンを書き込む（存在する場合）
     if let Some(version) = &data.game_version {
         let mut version_elem = BytesStart::new("String");
         version_elem.push_attribute(("key", "maintenance-lastGameVersion"));
         writer.write_event(Event::Start(version_elem))
-            .map_err(|e| format!("maintenance-lastGameVersion要素の書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("maintenance-lastGameVersion要素の書き込みに失敗しました: {}", e)))?;
         
         writer.write_event(Event::Text(quick_xml::events::BytesText::new(version)))
-            .map_err(|e| format!("ゲームバージョン書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("ゲームバージョン書き込みに失敗しました: {}", e)))?;
         
         writer.write_event(Event::End(BytesEnd::new("String")))
-            .map_err(|e| format!("String要素終了の書き込みに失敗しました: {}", e))?;
+            .map_err(|e| BallistaError::XmlError(format!("String要素終了の書き込みに失敗しました: {}", e)))?;
     }
     
     // ルート要素を閉じる
     writer.write_event(Event::End(BytesEnd::new("StringDict")))
-        .map_err(|e| format!("ルート要素終了の書き込みに失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("ルート要素終了の書き込みに失敗しました: {}", e)))?;
     
     // バイト配列を文字列に変換
     let result = String::from_utf8(writer.into_inner())
-        .map_err(|e| format!("XML文字列の生成に失敗しました: {}", e))?;
+        .map_err(|e| BallistaError::XmlError(format!("XML文字列の生成に失敗しました: {}", e)))?;
     
     Ok(result)
 }
@@ -378,7 +378,7 @@ pub fn generate_xml(data: &ModdingXmlData) -> Result<String, String> {
 /// # 戻り値
 ///
 /// 成功した場合はOk、失敗した場合はエラーメッセージ
-pub fn toggle_mod_enabled(data: &mut ModdingXmlData, uuid: &str) -> Result<(), String> {
+pub fn toggle_mod_enabled(data: &mut ModdingXmlData, uuid: &str) -> Result<(), BallistaError> {
     trace_fn!("toggle_mod_enabled(uuid: {})", uuid);
     
     // 有効なMODリストから探す
@@ -397,7 +397,7 @@ pub fn toggle_mod_enabled(data: &mut ModdingXmlData, uuid: &str) -> Result<(), S
         return Ok(());
     }
     
-    Err(format!("指定されたUUIDのMODが見つかりません: {}", uuid))
+    Err(BallistaError::PresetError(format!("指定されたUUIDのMODが見つかりません: {}", uuid)))
 }
 
 /// MOD情報を取得する

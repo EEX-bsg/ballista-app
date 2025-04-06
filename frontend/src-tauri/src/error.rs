@@ -66,41 +66,12 @@ impl BallistaError {
             Severity::Critical => error!("致命的なエラー: {}", self),
         }
     }
-    
-    /// エラーからの自動リカバリーを試みる
-    pub fn try_recover(&self) -> Result<Option<String>, String> {
-        match self {
-            BallistaError::FileError(msg) => {
-                // ファイルエラーのリカバリー
-                error!("ファイルエラーからのリカバリーを試みます: {}", msg);
-                Ok(Some("ファイルアクセスに問題があります。アクセス権限を確認してください。".to_string()))
-            },
-            BallistaError::XmlError(msg) => {
-                // XML解析エラーのリカバリー
-                error!("XML解析エラーからのリカバリーを試みます: {}", msg);
-                Ok(Some("XMLファイルの形式に問題があります。別のファイルを試すか、バックアップから復元してください。".to_string()))
-            },
-            BallistaError::BackupError(msg) => {
-                // バックアップエラーのリカバリー
-                warn!("バックアップエラーからのリカバリーを試みます: {}", msg);
-                Ok(Some("バックアップの処理中にエラーが発生しました。ディスク容量を確認してください。".to_string()))
-            },
-            BallistaError::PresetError(msg) => {
-                // プリセットエラーのリカバリー
-                warn!("プリセットエラーからのリカバリーを試みます: {}", msg);
-                Ok(Some("プリセットの処理中にエラーが発生しました。プリセットファイルが正しいか確認してください。".to_string()))
-            },
-            BallistaError::ConfigError(msg) => {
-                // 設定エラーのリカバリー
-                warn!("設定エラーからのリカバリーを試みます: {}", msg);
-                Ok(Some("設定ファイルに問題があります。設定を初期化してみてください。".to_string()))
-            },
-            BallistaError::InternalError(msg) => {
-                // 内部エラーのリカバリー
-                error!("内部エラーからのリカバリーを試みます: {}", msg);
-                Err("内部エラーが発生しました。アプリケーションを再起動してください。".to_string())
-            },
-        }
+}
+
+// BallistaErrorからStringへの変換（APIレイヤーで使用）
+impl From<BallistaError> for String {
+    fn from(err: BallistaError) -> Self {
+        err.to_string()
     }
 }
 
@@ -139,4 +110,4 @@ impl From<String> for BallistaError {
             BallistaError::InternalError(err)
         }
     }
-} 
+}

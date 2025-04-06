@@ -9,20 +9,23 @@
 use std::path::{Path, PathBuf};
 use std::fs;
 use crate::trace_fn;
+use crate::error::BallistaError;
 
 /// パスが有効かどうかを検証する
-pub fn validate_path(path: &Path) -> Result<(), String> {
+pub fn validate_path(path: &Path) -> Result<(), BallistaError> {
     trace_fn!("validate_path(path: {})", path.display());
     
     // パスの形式チェック
     if path.to_string_lossy().is_empty() {
-        return Err("パスが空です".to_string());
+        return Err(BallistaError::FileError("パスが空です".to_string()));
     }
     
     // ディレクトリの存在確認
     if let Some(parent) = path.parent() {
         if !parent.exists() {
-            return Err(format!("親ディレクトリが存在しません: {}", parent.display()));
+            return Err(BallistaError::FileError(
+                format!("親ディレクトリが存在しません: {}", parent.display())
+            ));
         }
     }
     
@@ -31,10 +34,14 @@ pub fn validate_path(path: &Path) -> Result<(), String> {
         match fs::metadata(path) {
             Ok(metadata) => {
                 if metadata.permissions().readonly() && !path.to_string_lossy().contains(".bak") {
-                    return Err(format!("ファイルは読み取り専用です: {}", path.display()));
+                    return Err(BallistaError::FileError(
+                        format!("ファイルは読み取り専用です: {}", path.display())
+                    ));
                 }
             }
-            Err(e) => return Err(format!("ファイルのメタデータの取得に失敗しました: {}", e)),
+            Err(e) => return Err(BallistaError::FileError(
+                format!("ファイルのメタデータの取得に失敗しました: {}", e)
+            )),
         }
     }
     
