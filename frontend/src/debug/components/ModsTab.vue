@@ -3,10 +3,13 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 <template>
-    <!-- デバッグモードのUIを表示 -->
-    <debug-view />
+    <v-card-text>
+        <v-alert type="info" variant="tonal">
+            MOD管理API機能は現在利用できません
+        </v-alert>
+    </v-card-text>
 </template>
 
 <script setup lang="ts">
-import DebugView from './debug/Debug.vue';
+// 将来的な実装のためのプレースホルダー
 </script>
