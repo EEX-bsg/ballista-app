@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, sync::{Arc, Mutex}};
 use tauri::AppHandle;
 use crate::logger;
+use crate::trace_fn;
 
 /// アプリケーション全体の設定を表す構造体
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -80,6 +81,7 @@ impl Default for AppConfig {
 ///
 /// 設定ディレクトリのパス。ディレクトリが存在しない場合は作成される。
 pub fn get_config_dir(app_handle: &AppHandle) -> PathBuf {
+    trace_fn!("get_config_dir()");
     let app_dir = app_handle
         .path_resolver()
         .app_config_dir()
@@ -103,6 +105,7 @@ pub fn get_config_dir(app_handle: &AppHandle) -> PathBuf {
 ///
 /// 設定ファイルのパス
 pub fn get_config_file_path(app_handle: &AppHandle) -> PathBuf {
+    trace_fn!("get_config_file_path()");
     get_config_dir(app_handle).join("config.json")
 }
 
@@ -118,6 +121,7 @@ pub fn get_config_file_path(app_handle: &AppHandle) -> PathBuf {
 ///
 /// アプリケーションの設定
 pub fn load_config(app_handle: &AppHandle) -> AppConfig {
+    trace_fn!("load_config()");
     let config_path = get_config_file_path(app_handle);
     
     if !config_path.exists() {
@@ -152,6 +156,7 @@ pub fn load_config(app_handle: &AppHandle) -> AppConfig {
 /// * `app_handle` - Tauriアプリケーションのハンドル
 /// * `config` - 保存する設定
 pub fn save_config(app_handle: &AppHandle, config: &AppConfig) {
+    trace_fn!("save_config()");
     let config_path = get_config_file_path(app_handle);
     
     // カスタムフォーマッタを使用してスペース4つのインデントを適用
@@ -186,6 +191,7 @@ pub fn save_config(app_handle: &AppHandle, config: &AppConfig) {
 ///
 /// 対応するLevelFilter。不明な値の場合はLevelFilter::Infoを返す
 pub fn string_to_log_level(level_str: &str) -> LevelFilter {
+    trace_fn!("string_to_log_level(level_str: {})", level_str);
     match level_str.to_lowercase().as_str() {
         "trace" => LevelFilter::Trace,
         "debug" => LevelFilter::Debug,
@@ -203,6 +209,7 @@ pub fn string_to_log_level(level_str: &str) -> LevelFilter {
 ///
 /// ログレベル（LevelFilter）。設定が読み込まれていない場合はデフォルト値を返す
 pub fn get_log_level() -> LevelFilter {
+    trace_fn!("get_log_level()");
     let level_str = get_config_value(
         |config| config.logging.level.clone(),
         AppConfig::default().logging.level
@@ -224,6 +231,7 @@ pub fn get_log_level() -> LevelFilter {
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn set_log_level(app_handle: &AppHandle, level: &str) -> Result<(), String> {
+    trace_fn!("set_log_level(level: {})", level);
     let level_lowercase = level.to_lowercase();
     
     // 有効なログレベルかチェック
@@ -285,6 +293,7 @@ where
 ///
 /// 正規化されたパス
 fn normalize_path(path: &str) -> String {
+    trace_fn!("normalize_path(path: {})", path);
     path.trim().replace('\\', "/").to_string()
 }
 
@@ -335,6 +344,7 @@ where
 ///
 /// Besiegeのパス。設定が読み込まれていない場合はデフォルト値を返す
 pub fn get_besiege_path() -> String {
+    trace_fn!("get_besiege_path()");
     get_config_value(
         |config| config.path.besiege_path.clone(),
         AppConfig::default().path.besiege_path
@@ -352,6 +362,7 @@ pub fn get_besiege_path() -> String {
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), String> {
+    trace_fn!("set_besiege_path(path: {})", path);
     let path_normalized = normalize_path(path);
     
     update_config_value(
@@ -376,6 +387,7 @@ pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), String
 ///
 /// Steam Workshopのパス。設定が読み込まれていない場合はデフォルト値を返す
 pub fn get_workshop_path() -> String {
+    trace_fn!("get_workshop_path()");
     get_config_value(
         |config| config.path.workshop_dir_path.clone(),
         AppConfig::default().path.workshop_dir_path
@@ -393,6 +405,7 @@ pub fn get_workshop_path() -> String {
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), String> {
+    trace_fn!("set_workshop_path(path: {})", path);
     let path_normalized = normalize_path(path);
     
     update_config_value(
@@ -417,6 +430,7 @@ pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), Strin
 ///
 /// Ballistaデータパス。設定が読み込まれていない場合はデフォルト値を返す
 pub fn get_ballista_data_path() -> String {
+    trace_fn!("get_ballista_data_path()");
     get_config_value(
         |config| config.path.ballista_data_path.clone(),
         AppConfig::default().path.ballista_data_path
@@ -434,6 +448,7 @@ pub fn get_ballista_data_path() -> String {
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn set_ballista_data_path(app_handle: &AppHandle, path: &str) -> Result<(), String> {
+    trace_fn!("set_ballista_data_path(path: {})", path);
     let path_normalized = normalize_path(path);
     
     update_config_value(
@@ -458,6 +473,7 @@ pub fn set_ballista_data_path(app_handle: &AppHandle, path: &str) -> Result<(), 
 ///
 /// UIテーマ。設定が読み込まれていない場合はデフォルト値を返す
 pub fn get_ui_theme() -> String {
+    trace_fn!("get_ui_theme()");
     get_config_value(
         |config| config.ui.theme.clone(),
         AppConfig::default().ui.theme
@@ -475,6 +491,7 @@ pub fn get_ui_theme() -> String {
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn set_ui_theme(app_handle: &AppHandle, theme: &str) -> Result<(), String> {
+    trace_fn!("set_ui_theme(theme: {})", theme);
     let theme_lowercase = theme.to_lowercase();
     
     update_config_value(
@@ -499,6 +516,7 @@ pub fn set_ui_theme(app_handle: &AppHandle, theme: &str) -> Result<(), String> {
 ///
 /// 言語設定。設定が読み込まれていない場合はデフォルト値を返す
 pub fn get_language() -> String {
+    trace_fn!("get_language()");
     get_config_value(
         |config| config.ui.language.clone(),
         AppConfig::default().ui.language
@@ -516,6 +534,7 @@ pub fn get_language() -> String {
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn set_language(app_handle: &AppHandle, language: &str) -> Result<(), String> {
+    trace_fn!("set_language(language: {})", language);
     let language_lowercase = language.to_lowercase();
     
     update_config_value(
@@ -544,6 +563,7 @@ pub static APP_CONFIG: once_cell::sync::Lazy<Arc<Mutex<Option<AppConfig>>>> =
 ///
 /// * `config` - 更新する設定
 fn update_global_config(config: AppConfig) {
+    trace_fn!("update_global_config()");
     if let Ok(mut app_config) = APP_CONFIG.lock() {
         *app_config = Some(config);
     }
@@ -555,6 +575,7 @@ fn update_global_config(config: AppConfig) {
 ///
 /// * `config` - ログに出力する設定
 fn log_current_config(config: &AppConfig) {
+    trace_fn!("log_current_config()");
     info!("設定を更新しました: ログレベル = {}, テーマ = {}, 言語 = {}", 
         config.logging.level, config.ui.theme, config.ui.language);
     info!("パス設定: Besiege = {}, Workshop = {}, Ballistaデータ = {}", 
@@ -569,6 +590,7 @@ fn log_current_config(config: &AppConfig) {
 ///
 /// * `app_handle` - Tauriアプリケーションのハンドル
 pub fn update_config(app_handle: &AppHandle) {
+    trace_fn!("update_config()");
     let config = load_config(app_handle);
     
     // グローバル設定を更新
