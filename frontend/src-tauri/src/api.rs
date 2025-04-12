@@ -10,6 +10,7 @@ use ballista_app::{
     core::modding::{self, ModInfo, ModdingXmlData},
     core::preset::{self, PresetInfo, PresetData},
     config::{self, load_config, update_config, get_log_level, AppConfig},
+    runtime_config::{self, RuntimeConfig},
     error::BallistaError,
     logger::set_log_level,
     trace_fn,
@@ -250,6 +251,67 @@ pub mod config_operations {
     pub async fn set_language(app_handle: AppHandle, language: String) -> Result<(), BallistaError> {
         trace_fn!("set_language(language: {})", language);
         config::set_language(&app_handle, &language)
+    }
+}
+
+pub mod runtime_config_operations {
+    //! ランタイム設定関連のAPI
+    use super::*;
+
+    /// ランタイム設定を取得する
+    #[tauri::command]
+    pub async fn get_runtime_config() -> Result<Option<RuntimeConfig>, BallistaError> {
+        trace_fn!("get_runtime_config()");
+        Ok(runtime_config::get_runtime_config())
+    }
+
+    /// ランタイム設定をリセットする
+    #[tauri::command]
+    pub async fn reset_runtime_config() -> Result<(), BallistaError> {
+        trace_fn!("reset_runtime_config()");
+        runtime_config::reset_runtime_config()
+    }
+
+    /// ランタイム設定値を設定する
+    #[tauri::command]
+    pub async fn set_runtime_value(key: String, value: String) -> Result<(), BallistaError> {
+        trace_fn!("set_runtime_value(key: {}, value: {})", key, value);
+        runtime_config::set_runtime_value(&key, &value)
+    }
+
+    /// ランタイム設定値を取得する
+    #[tauri::command]
+    pub async fn get_runtime_value(key: String) -> Result<Option<String>, BallistaError> {
+        trace_fn!("get_runtime_value(key: {})", key);
+        Ok(runtime_config::get_runtime_value(&key))
+    }
+
+    /// ランタイム設定値を削除する
+    #[tauri::command]
+    pub async fn remove_runtime_value(key: String) -> Result<(), BallistaError> {
+        trace_fn!("remove_runtime_value(key: {})", key);
+        runtime_config::remove_runtime_value(&key)
+    }
+
+    /// ランタイム設定値が存在するかどうかを確認する
+    #[tauri::command]
+    pub async fn has_runtime_value(key: String) -> Result<bool, BallistaError> {
+        trace_fn!("has_runtime_value(key: {})", key);
+        Ok(runtime_config::has_runtime_value(&key))
+    }
+
+    /// modding.xmlのパスを設定する
+    #[tauri::command]
+    pub async fn set_modding_xml_path(path: String) -> Result<(), BallistaError> {
+        trace_fn!("set_modding_xml_path(path: {})", path);
+        runtime_config::set_modding_xml_path(&path)
+    }
+
+    /// modding.xmlのパスを取得する
+    #[tauri::command]
+    pub async fn get_modding_xml_path() -> Result<Option<String>, BallistaError> {
+        trace_fn!("get_modding_xml_path()");
+        Ok(runtime_config::get_modding_xml_path())
     }
 }
 

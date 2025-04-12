@@ -20,6 +20,7 @@ pub mod logger;
 
 pub mod error;
 pub mod config;
+pub mod runtime_config;
 
 // ユーティリティ関数
 pub mod utils;
