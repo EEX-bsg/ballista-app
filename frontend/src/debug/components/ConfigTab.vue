@@ -72,10 +72,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineProps, defineEmits, inject, onMounted } from 'vue';
+import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/dialog';
-import { Logger, createLogger } from '../../utils/logger';
 
 const props = defineProps<{
     logMessage: (level: string, message: string) => void;
