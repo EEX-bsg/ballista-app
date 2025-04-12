@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 use crate::core::modding::{ModInfo, ModdingXmlData};
 use crate::core::backup;
+use crate::error::BallistaError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PresetInfo {
@@ -34,12 +35,12 @@ pub struct PresetData {
 }
 
 /// プリセットディレクトリを取得する
-pub fn get_preset_dir() -> Result<PathBuf, String> {
+pub fn get_preset_dir() -> Result<PathBuf, BallistaError> {
     trace_fn!("get_preset_dir()");
     
     // アプリケーションデータディレクトリを取得
     let data_dir = dirs_next::data_dir()
-        .ok_or_else(|| "アプリケーションデータディレクトリが見つかりません".to_string())?;
+        .ok_or_else(|| BallistaError::PresetError("アプリケーションデータディレクトリが見つかりません".to_string()))?;
     
     // プリセットディレクトリのパスを生成
     let preset_dir = data_dir.join("ballista-app").join("presets");
@@ -47,7 +48,7 @@ pub fn get_preset_dir() -> Result<PathBuf, String> {
     // ディレクトリが存在しない場合は作成
     if !preset_dir.exists() {
         if let Err(e) = fs::create_dir_all(&preset_dir) {
-            return Err(format!("プリセットディレクトリの作成に失敗しました: {}", e));
+            return Err(BallistaError::PresetError(format!("プリセットディレクトリの作成に失敗しました: {}", e)));
         }
     }
     
@@ -56,16 +57,16 @@ pub fn get_preset_dir() -> Result<PathBuf, String> {
 }
 
 /// プリセットを保存する
-pub fn save_preset(name: &str, description: Option<&str>, data: &ModdingXmlData) -> Result<PathBuf, String> {
+pub fn save_preset(name: &str, description: Option<&str>, data: &ModdingXmlData) -> Result<PathBuf, BallistaError> {
     trace_fn!("save_preset(name: {}, description: {:?})", name, description);
     
     // プリセット名のバリデーション
     if name.trim().is_empty() {
-        return Err("プリセット名は空にできません".to_string());
+        return Err(BallistaError::PresetError("プリセット名は空にできません".to_string()));
     }
     
     if name.contains(|c: char| c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
-        return Err("プリセット名に無効な文字が含まれています".to_string());
+        return Err(BallistaError::PresetError("プリセット名に無効な文字が含まれています".to_string()));
     }
     
     // プリセットディレクトリを取得
@@ -89,12 +90,12 @@ pub fn save_preset(name: &str, description: Option<&str>, data: &ModdingXmlData)
     // JSONに変換
     let json = match serde_json::to_string_pretty(&preset_data) {
         Ok(json) => json,
-        Err(e) => return Err(format!("プリセットデータのJSON変換に失敗しました: {}", e)),
+        Err(e) => return Err(BallistaError::PresetError(format!("プリセットデータのJSON変換に失敗しました: {}", e))),
     };
     
     // ファイルに書き込む
     if let Err(e) = fs::write(&preset_path, json) {
-        return Err(format!("プリセットファイルの書き込みに失敗しました: {}", e));
+        return Err(BallistaError::PresetError(format!("プリセットファイルの書き込みに失敗しました: {}", e)));
     }
     
     info!("プリセットを保存しました: {}", preset_path.display());
@@ -102,18 +103,18 @@ pub fn save_preset(name: &str, description: Option<&str>, data: &ModdingXmlData)
 }
 
 /// プリセットを読み込む
-pub fn load_preset(preset_path: &Path) -> Result<PresetData, String> {
+pub fn load_preset(preset_path: &Path) -> Result<PresetData, BallistaError> {
     trace_fn!("load_preset(preset_path: {})", preset_path.display());
     
     // ファイルが存在することを確認
     if !preset_path.exists() {
-        return Err(format!("プリセットファイルが存在しません: {}", preset_path.display()));
+        return Err(BallistaError::PresetError(format!("プリセットファイルが存在しません: {}", preset_path.display())));
     }
     
     // ファイル内容を読み込み
     let content = match fs::read_to_string(preset_path) {
         Ok(content) => content,
-        Err(e) => return Err(format!("プリセットファイルの読み込みに失敗しました: {}", e)),
+        Err(e) => return Err(BallistaError::PresetError(format!("プリセットファイルの読み込みに失敗しました: {}", e))),
     };
     
     // JSONをパース
@@ -122,12 +123,12 @@ pub fn load_preset(preset_path: &Path) -> Result<PresetData, String> {
             debug!("プリセットを読み込みました: {}", preset_path.display());
             Ok(preset)
         },
-        Err(e) => Err(format!("プリセットデータのパースに失敗しました: {}", e)),
+        Err(e) => Err(BallistaError::PresetError(format!("プリセットデータのパースに失敗しました: {}", e))),
     }
 }
 
 /// プリセット一覧を取得する
-pub fn get_preset_list() -> Result<Vec<PresetInfo>, String> {
+pub fn get_preset_list() -> Result<Vec<PresetInfo>, BallistaError> {
     trace_fn!("get_preset_list()");
     
     // プリセットディレクトリを取得
@@ -170,12 +171,12 @@ pub fn get_preset_list() -> Result<Vec<PresetInfo>, String> {
 }
 
 /// プリセットを削除する
-pub fn delete_preset(preset_path: &Path) -> Result<(), String> {
+pub fn delete_preset(preset_path: &Path) -> Result<(), BallistaError> {
     trace_fn!("delete_preset(preset_path: {})", preset_path.display());
     
     // ファイルが存在することを確認
     if !preset_path.exists() {
-        return Err(format!("プリセットファイルが存在しません: {}", preset_path.display()));
+        return Err(BallistaError::PresetError(format!("プリセットファイルが存在しません: {}", preset_path.display())));
     }
     
     // ファイルを削除
@@ -184,6 +185,6 @@ pub fn delete_preset(preset_path: &Path) -> Result<(), String> {
             info!("プリセットを削除しました: {}", preset_path.display());
             Ok(())
         },
-        Err(e) => Err(format!("プリセットの削除に失敗しました: {}", e)),
+        Err(e) => Err(BallistaError::PresetError(format!("プリセットの削除に失敗しました: {}", e))),
     }
-} 
+}

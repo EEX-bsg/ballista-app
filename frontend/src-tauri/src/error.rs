@@ -1,9 +1,10 @@
 use std::io;
 use thiserror::Error;
 use log::{error, warn};
+use serde::{Serialize, Deserialize};
 
 /// エラー型
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize, Deserialize)]
 pub enum BallistaError {
     #[error("ファイル操作エラー: {0}")]
     FileError(String),

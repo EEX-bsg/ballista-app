@@ -11,16 +11,78 @@ use std::fs;
 use crate::trace_fn;
 use crate::error::BallistaError;
 
-/// パスが有効かどうかを検証する
-pub fn validate_path(path: &Path) -> Result<(), BallistaError> {
-    trace_fn!("validate_path(path: {})", path.display());
-    
+/// パスの種類を表すenum
+#[derive(Debug, Clone, Copy)]
+pub enum PathType {
+    File,
+    Directory,
+}
+
+impl PathType {
+    /// エラーメッセージ用の表示文字列を取得
+    fn display_name(&self) -> &'static str {
+        match self {
+            PathType::File => "ファイル",
+            PathType::Directory => "ディレクトリ",
+        }
+    }
+}
+
+/// 共通のパス検証を行う内部関数
+///
+/// 以下の条件をチェックします：
+/// - パスが空でないこと
+/// - パスが存在すること
+/// - パスに読み書き権限があること
+///
+/// # Arguments
+/// * `path` - 検証するパス
+/// * `path_type` - パスの種類
+fn validate_path(path: &Path, path_type: PathType) -> Result<(), BallistaError> {
     // パスの形式チェック
     if path.to_string_lossy().is_empty() {
         return Err(BallistaError::FileError("パスが空です".to_string()));
     }
     
-    // ディレクトリの存在確認
+    // 存在確認
+    if !path.exists() {
+        return Err(BallistaError::FileError(
+            format!("{}が存在しません: {}", path_type.display_name(), path.display())
+        ));
+    }
+    
+    // メタデータによる権限の確認
+    match fs::metadata(path) {
+        Ok(metadata) => {
+            // 読み取り専用かどうかチェック
+            if metadata.permissions().readonly() {
+                return Err(BallistaError::FileError(
+                    format!("{}は読み取り専用です: {}", path_type.display_name(), path.display())
+                ));
+            }
+        },
+        Err(e) => return Err(BallistaError::FileError(
+            format!("{}のメタデータの取得に失敗しました: {}", path_type.display_name(), e)
+        )),
+    }
+    
+    Ok(())
+}
+
+/// ファイルパスを検証する
+///
+/// 以下の条件をチェックします：
+/// - パスが空でないこと
+/// - 親ディレクトリが存在すること
+/// - ファイルが存在すること（ディレクトリではないこと）
+/// - ファイルに読み書き権限があること
+///
+/// # Arguments
+/// * `path` - 検証するファイルパス
+pub fn validate_file_path(path: &Path) -> Result<(), BallistaError> {
+    trace_fn!("validate_file_path(path: {})", path.display());
+    
+    // 親ディレクトリの存在確認
     if let Some(parent) = path.parent() {
         if !parent.exists() {
             return Err(BallistaError::FileError(
@@ -29,20 +91,39 @@ pub fn validate_path(path: &Path) -> Result<(), BallistaError> {
         }
     }
     
-    // ファイルの存在確認（存在する場合はアクセス権限確認）
-    if path.exists() {
-        match fs::metadata(path) {
-            Ok(metadata) => {
-                if metadata.permissions().readonly() && !path.to_string_lossy().contains(".bak") {
-                    return Err(BallistaError::FileError(
-                        format!("ファイルは読み取り専用です: {}", path.display())
-                    ));
-                }
-            }
-            Err(e) => return Err(BallistaError::FileError(
-                format!("ファイルのメタデータの取得に失敗しました: {}", e)
-            )),
-        }
+    // 共通のパス検証
+    validate_path(path, PathType::File)?;
+    
+    // ファイルタイプの確認
+    if !path.is_file() {
+        return Err(BallistaError::FileError(
+            format!("パスはファイルではありません: {}", path.display())
+        ));
+    }
+    
+    Ok(())
+}
+
+/// ディレクトリパスを検証する
+///
+/// 以下の条件をチェックします：
+/// - パスが空でないこと
+/// - ディレクトリが存在すること（ファイルではないこと）
+/// - ディレクトリに読み書き権限があること
+///
+/// # Arguments
+/// * `path` - 検証するディレクトリパス
+pub fn validate_directory_path(path: &Path) -> Result<(), BallistaError> {
+    trace_fn!("validate_directory_path(path: {})", path.display());
+    
+    // 共通のパス検証
+    validate_path(path, PathType::Directory)?;
+    
+    // ディレクトリタイプの確認
+    if !path.is_dir() {
+        return Err(BallistaError::FileError(
+            format!("パスはディレクトリではありません: {}", path.display())
+        ));
     }
     
     Ok(())
