@@ -14,6 +14,7 @@ use tauri::AppHandle;
 
 use crate::logger;
 use crate::trace_fn;
+use crate::error::BallistaError;
 
 /// アプリケーション全体の設定を表す構造体
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -231,7 +232,7 @@ pub fn get_log_level() -> LevelFilter {
 /// # 戻り値
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
-pub fn set_log_level(app_handle: &AppHandle, level: &str) -> Result<(), String> {
+pub fn set_log_level(app_handle: &AppHandle, level: &str) -> Result<(), BallistaError> {
     trace_fn!("set_log_level(app_handle: &AppHandle, level: {})", level);
     let level_lowercase = level.to_lowercase();
     
