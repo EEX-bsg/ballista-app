@@ -11,6 +11,7 @@ mod api;
 use ballista_app::{
     logger::{self, set_log_level},
     config::{load_config, get_log_level, update_config, APP_CONFIG},
+    runtime_config::{self, initialize_runtime_config, log_runtime_config},
     watcher::{start_config_watcher, handle_config_changes},
 };
 
@@ -41,6 +42,10 @@ fn setup_logger(level: LevelFilter) {
 fn init_app(app: &AppHandle) {
     // 設定ファイルの読み込み
     update_config(app);
+    
+    // ランタイム設定の初期化
+    initialize_runtime_config();
+    log_runtime_config();
     
     // ファイル監視の開始
     match start_config_watcher(app.clone()) {
@@ -137,6 +142,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             api::config_operations::set_ui_theme,
             api::config_operations::get_language,
             api::config_operations::set_language,
+            
+            // ランタイム設定関連API
+            api::runtime_config_operations::get_runtime_config,
+            api::runtime_config_operations::reset_runtime_config,
+            api::runtime_config_operations::set_runtime_value,
+            api::runtime_config_operations::get_runtime_value,
+            api::runtime_config_operations::remove_runtime_value,
+            api::runtime_config_operations::has_runtime_value,
+            api::runtime_config_operations::set_modding_xml_path,
+            api::runtime_config_operations::get_modding_xml_path,
             
             // アプリケーション操作系API
             api::app_operations::log_message,

@@ -16,7 +16,7 @@ use quick_xml::Writer;
 use serde::{Deserialize, Serialize};
 use log::{debug, info};
 
-use crate::utils::validate_path;
+use crate::utils::validate_file_path;
 use crate::error::BallistaError;
 use crate::trace_fn;
 
@@ -78,7 +78,7 @@ pub fn read_modding_xml(file_path: &Path) -> Result<String, BallistaError> {
     trace_fn!("read_modding_xml(file_path: {})", file_path.display());
     
     // パス検証
-    validate_path(file_path)?;
+    validate_file_path(file_path)?;
     
     // ファイルが存在することを確認
     if !file_path.exists() {

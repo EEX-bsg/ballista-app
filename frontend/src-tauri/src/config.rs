@@ -238,7 +238,7 @@ pub fn set_log_level(app_handle: &AppHandle, level: &str) -> Result<(), String> 
     // 有効なログレベルかチェック
     let log_filter = match level_lowercase.as_str() {
         "trace" | "debug" | "info" | "warn" | "error" | "off" => string_to_log_level(&level_lowercase),
-        _ => return Err(format!("無効なログレベル: {}", level)),
+        _ => return Err(BallistaError::ConfigError(format!("無効なログレベル: {}", level))),
     };
     
     update_config_value(
@@ -315,9 +315,9 @@ fn update_config_value<V, U>(
     validator: V,
     updater: U,
     log_message: &str,
-) -> Result<(), String>
+) -> Result<(), BallistaError>
 where
-    V: FnOnce() -> Result<(), String>,
+    V: FnOnce() -> Result<(), BallistaError>,
     U: FnOnce(&mut AppConfig),
 {
     // 値を検証
@@ -362,7 +362,8 @@ pub fn get_besiege_path() -> String {
 /// # 戻り値
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
-pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), String> {
+pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), BallistaError> {
+    trace_fn!("set_besiege_path(path: {})", path);
     let path_normalized = normalize_path(path);
     trace_fn!("set_besiege_path(app_handle: &AppHandle, path: {})", path_normalized);
     
@@ -371,7 +372,7 @@ pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), String
         || {
             // パスが空でないことを確認
             if path_normalized.is_empty() {
-                return Err("Besiegeのパスが空です".to_string());
+                return Err(BallistaError::ConfigError("Besiegeのパスが空です".to_string()));
             }
             Ok(())
         },
@@ -405,7 +406,8 @@ pub fn get_workshop_path() -> String {
 /// # 戻り値
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
-pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), String> {
+pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), BallistaError> {
+    trace_fn!("set_workshop_path(path: {})", path);
     let path_normalized = normalize_path(path);
     trace_fn!("set_workshop_path(app_handle: &AppHandle, path: {})", path_normalized);
     
@@ -414,7 +416,7 @@ pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), Strin
         || {
             // パスが空でないことを確認
             if path_normalized.is_empty() {
-                return Err("Steam Workshopのパスが空です".to_string());
+                return Err(BallistaError::ConfigError("Steam Workshopのパスが空です".to_string()));
             }
             Ok(())
         },
@@ -448,7 +450,8 @@ pub fn get_ballista_data_path() -> String {
 /// # 戻り値
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
-pub fn set_ballista_data_path(app_handle: &AppHandle, path: &str) -> Result<(), String> {
+pub fn set_ballista_data_path(app_handle: &AppHandle, path: &str) -> Result<(), BallistaError> {
+    trace_fn!("set_ballista_data_path(path: {})", path);
     let path_normalized = normalize_path(path);
     trace_fn!("set_ballista_data_path(app_handle: &AppHandle, path: {})", path_normalized);
     
@@ -457,7 +460,7 @@ pub fn set_ballista_data_path(app_handle: &AppHandle, path: &str) -> Result<(), 
         || {
             // パスが空でないことを確認
             if path_normalized.is_empty() {
-                return Err("Ballistaデータパスが空です".to_string());
+                return Err(BallistaError::ConfigError("Ballistaデータパスが空です".to_string()));
             }
             Ok(())
         },
@@ -491,7 +494,8 @@ pub fn get_ui_theme() -> String {
 /// # 戻り値
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
-pub fn set_ui_theme(app_handle: &AppHandle, theme: &str) -> Result<(), String> {
+pub fn set_ui_theme(app_handle: &AppHandle, theme: &str) -> Result<(), BallistaError> {
+    trace_fn!("set_ui_theme(theme: {})", theme);
     let theme_lowercase = theme.to_lowercase();
     trace_fn!("set_ui_theme(app_handle: &AppHandle, theme: {})", theme_lowercase);
     
@@ -501,7 +505,7 @@ pub fn set_ui_theme(app_handle: &AppHandle, theme: &str) -> Result<(), String> {
             // 有効なテーマかチェック
             match theme_lowercase.as_str() {
                 "light" | "dark" | "system" => Ok(()),
-                _ => Err(format!("無効なUIテーマ: {}", theme)),
+                _ => Err(BallistaError::ConfigError(format!("無効なUIテーマ: {}", theme))),
             }
         },
         |config| {
@@ -534,7 +538,8 @@ pub fn get_language() -> String {
 /// # 戻り値
 ///
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
-pub fn set_language(app_handle: &AppHandle, language: &str) -> Result<(), String> {
+pub fn set_language(app_handle: &AppHandle, language: &str) -> Result<(), BallistaError> {
+    trace_fn!("set_language(language: {})", language);
     let language_lowercase = language.to_lowercase();
     trace_fn!("set_language(app_handle: &AppHandle, language: {})", language_lowercase);
     
@@ -544,7 +549,7 @@ pub fn set_language(app_handle: &AppHandle, language: &str) -> Result<(), String
             // 有効な言語かチェック
             match language_lowercase.as_str() {
                 "ja" | "en" => Ok(()),
-                _ => Err(format!("無効な言語設定: {}", language)),
+                _ => Err(BallistaError::ConfigError(format!("無効な言語設定: {}", language))),
             }
         },
         |config| {

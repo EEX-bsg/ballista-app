@@ -3,60 +3,111 @@
 echo "Ballista-BesiegeLauncher コンパイルスクリプト"
 echo "======================================"
 
-cd frontend/src-tauri
+# ビルドタイプの選択（デフォルトはリリース）
+BUILD_TYPE="release"
+if [ "$1" == "debug" ]; then
+    BUILD_TYPE="debug"
+    echo "デバッグビルドを実行します..."
+else
+    echo "リリースビルドを実行します... (デバッグビルドを行うには 'debug' 引数を追加してください)"
+fi
 
-# シンプルなテストのみを実行（失敗しないものだけ）
-# echo "シンプルなテストを実行中..."
-# cargo test tests::tests::test_app_config
-# if [ $? -ne 0 ]; then
-#     echo "基本テストに失敗しました。修正してください。"
-#     cd ../..
-#     exit 1
-# fi
-# echo "基本テスト成功!"
+# フロントエンドディレクトリに移動
+cd frontend || { echo "フロントエンドディレクトリが見つかりません"; exit 1; }
 
-# コンパイルを開始し、同時にタイムアウトカウントを開始
-echo "コンパイル中..."
-cargo build > compile_output.log 2>&1 &
-COMPILE_PID=$!
+# 依存関係のインストール確認
+if [ ! -d "node_modules" ]; then
+    echo "node_modulesが見つかりません。依存関係をインストールします..."
+    npm install || { echo "依存関係のインストールに失敗しました"; cd ..; exit 1; }
+fi
 
-# 10秒間のタイムアウトを設定
-TIMEOUT=10
-COUNTER=0
+# Tauriアプリケーションのビルド
+echo "Tauriアプリケーションをビルドしています... (${BUILD_TYPE}モード)"
+if [ "$BUILD_TYPE" == "debug" ]; then
+    npm run tauri build -- --debug || { echo "ビルドに失敗しました"; cd ..; exit 1; }
+else
+    npm run tauri build || { echo "ビルドに失敗しました"; cd ..; exit 1; }
+fi
 
-while [ $COUNTER -lt $TIMEOUT ]; do
-    # プロセスの状態を確認
-    if ! ps -p $COMPILE_PID > /dev/null; then
-        # プロセスは終了しました
-        echo "コンパイル完了!"
-        break
+echo "ビルド成功!"
+
+# ビルド成果物の場所を特定
+if [ "$BUILD_TYPE" == "debug" ]; then
+    BUNDLE_DIR="src-tauri/target/debug/bundle"
+else
+    BUNDLE_DIR="src-tauri/target/release/bundle"
+fi
+
+# OSに応じたビルド成果物の場所を特定
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+    # Windows
+    if [ -d "$BUNDLE_DIR/msi" ]; then
+        echo "Windows MSIインストーラーが生成されました:"
+        find "$BUNDLE_DIR/msi" -name "*.msi" -type f | while read -r file; do
+            echo "- $file"
+            # 絶対パスを表示
+            ABSOLUTE_PATH=$(cd "$(dirname "$file")" && pwd)
+            echo "  絶対パス: $ABSOLUTE_PATH/$(basename "$file")"
+        done
     fi
     
-    # 1秒待機してカウンタを増加
-    sleep 1
-    COUNTER=$((COUNTER+1))
-    echo "カウント: $COUNTER/$TIMEOUT"
-    
-    if [ $COUNTER -ge $TIMEOUT ]; then
-        echo "コンパイルがタイムアウトしました。"
-        kill -9 $COMPILE_PID 2>/dev/null
-        echo "コンパイルをキャンセルしました。ログを確認してください。"
-        cat compile_output.log
-        cd ../..
-        exit 1
+    if [ -d "$BUNDLE_DIR/nsis" ]; then
+        echo "Windows NSISインストーラーが生成されました:"
+        find "$BUNDLE_DIR/nsis" -name "*.exe" -type f | while read -r file; do
+            echo "- $file"
+            # 絶対パスを表示
+            ABSOLUTE_PATH=$(cd "$(dirname "$file")" && pwd)
+            echo "  絶対パス: $ABSOLUTE_PATH/$(basename "$file")"
+        done
     fi
-done
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    if [ -d "$BUNDLE_DIR/macos" ]; then
+        echo "macOSアプリケーションが生成されました:"
+        find "$BUNDLE_DIR/macos" -name "*.app" -type d | while read -r file; do
+            echo "- $file"
+            # 絶対パスを表示
+            ABSOLUTE_PATH=$(cd "$(dirname "$file")" && pwd)
+            echo "  絶対パス: $ABSOLUTE_PATH/$(basename "$file")"
+        done
+        
+        if [ -d "$BUNDLE_DIR/dmg" ]; then
+            echo "macOS DMGインストーラーが生成されました:"
+            find "$BUNDLE_DIR/dmg" -name "*.dmg" -type f | while read -r file; do
+                echo "- $file"
+                # 絶対パスを表示
+                ABSOLUTE_PATH=$(cd "$(dirname "$file")" && pwd)
+                echo "  絶対パス: $ABSOLUTE_PATH/$(basename "$file")"
+            done
+        fi
+    fi
+else
+    # Linux
+    if [ -d "$BUNDLE_DIR/appimage" ]; then
+        echo "Linux AppImageが生成されました:"
+        find "$BUNDLE_DIR/appimage" -name "*.AppImage" -type f | while read -r file; do
+            echo "- $file"
+            # 絶対パスを表示
+            ABSOLUTE_PATH=$(cd "$(dirname "$file")" && pwd)
+            echo "  絶対パス: $ABSOLUTE_PATH/$(basename "$file")"
+        done
+    fi
+    
+    if [ -d "$BUNDLE_DIR/deb" ]; then
+        echo "Linux DEBパッケージが生成されました:"
+        find "$BUNDLE_DIR/deb" -name "*.deb" -type f | while read -r file; do
+            echo "- $file"
+            # 絶対パスを表示
+            ABSOLUTE_PATH=$(cd "$(dirname "$file")" && pwd)
+            echo "  絶対パス: $ABSOLUTE_PATH/$(basename "$file")"
+        done
+    fi
+fi
 
-echo "コンパイル結果:"
-cat compile_output.log
-rm compile_output.log
-cd ../..
+# 元のディレクトリに戻る
+cd ..
 
 echo "======================================"
+echo "ビルドが完了しました。上記の場所に生成されたファイルを確認してください。"
 echo "開発環境を起動するには次のコマンドを実行してください:"
-echo "cd frontend"
-echo "npm run tauri dev"
-echo ""
-echo "または直接アプリを実行するには:"
-echo "cd frontend/src-tauri/target/debug"
-echo "./ballista-app"
+echo "./run-dev.sh"
