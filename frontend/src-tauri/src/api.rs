@@ -303,20 +303,6 @@ pub mod runtime_config_operations {
         trace_fn!("has_runtime_value(key: {})", key);
         Ok(runtime_config::has_runtime_value(&key))
     }
-
-    /// modding.xmlのパスを設定する
-    #[tauri::command]
-    pub async fn set_modding_xml_path(path: String) -> Result<(), BallistaError> {
-        trace_fn!("set_modding_xml_path(path: {})", path);
-        runtime_config::set_modding_xml_path(&path)
-    }
-
-    /// modding.xmlのパスを取得する
-    #[tauri::command]
-    pub async fn get_modding_xml_path() -> Result<Option<String>, BallistaError> {
-        trace_fn!("get_modding_xml_path()");
-        Ok(runtime_config::get_modding_xml_path())
-    }
 }
 
 pub mod app_operations {

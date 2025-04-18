@@ -7,12 +7,21 @@
 //! このモジュールは、アプリケーション実行中のみ保持するグローバル設定を管理するための機能を提供します。
 //! これらの設定はメモリ上にのみ存在し、アプリケーションが終了すると消えます。
 
+use crate::config;
+use crate::constants::*;
+use crate::error::BallistaError;
+use crate::trace_fn;
+use crate::utils::normalize_path;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use crate::trace_fn;
-use crate::error::BallistaError;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+
+/// ランタイム設定のキー定数
+pub const RUNTIME_KEY_MODDING_XML_PATH: &str = "modding_xml_path";
+pub const RUNTIME_KEY_MODS_DIR_PATH: &str = "mods_dir_path";
+pub const RUNTIME_KEY_BESIEGE_WORKSHOP_PATH: &str = "besiege_workshop_path";
 
 /// ランタイム設定を表す構造体
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -41,7 +50,86 @@ pub fn initialize_runtime_config() {
     trace_fn!("initialize_runtime_config()");
     let config = RuntimeConfig::default();
     update_global_runtime_config(config.clone());
-    info!("ランタイム設定を初期化しました: セッションID = {}", config.session_id);
+    info!(
+        "ランタイム設定を初期化しました: セッションID = {}",
+        config.session_id
+    );
+
+    // 派生パスを初期化
+    initialize_derived_paths();
+}
+
+/// 派生パスを初期化する
+/// Besiege.exeパスとworkshopパスから派生するパスを設定
+fn initialize_derived_paths() {
+    trace_fn!("initialize_derived_paths()");
+
+    // Besiege.exeパスから派生するパスを設定
+    update_paths_from_besiege_exe();
+
+    // Workshopパスから派生するパスを設定
+    update_paths_from_workshop();
+}
+
+/// パスをPathBufから正規化された文字列に変換する
+fn path_to_normalized_string(path: &Path) -> String {
+    normalize_path(&path.to_string_lossy().to_string())
+}
+
+/// Besiege.exeパスから派生するパスを更新
+pub fn update_paths_from_besiege_exe() {
+    trace_fn!("update_paths_from_besiege_exe()");
+
+    let besiege_path = config::get_besiege_path();
+    if besiege_path.is_empty() {
+        debug!("Besiege.exeパスが設定されていないため、派生パスを初期化できません");
+        return;
+    }
+
+    let besiege_dir = Path::new(&besiege_path).parent();
+    if let Some(dir) = besiege_dir {
+        // modding.xmlパスを設定
+        let modding_xml_path = dir.join(MODDING_CONFIG_RELATIVE_PATH);
+        let modding_xml_path_str = path_to_normalized_string(&modding_xml_path);
+        let _ = set_runtime_value(RUNTIME_KEY_MODDING_XML_PATH, &modding_xml_path_str);
+
+        // modsディレクトリパスを設定
+        let mods_dir_path = dir.join(MODS_DIR_RELATIVE_PATH);
+        let mods_dir_path_str = path_to_normalized_string(&mods_dir_path);
+        let _ = set_runtime_value(RUNTIME_KEY_MODS_DIR_PATH, &mods_dir_path_str);
+
+        debug!(
+            "Besiege.exeから派生パスを更新しました: modding.xml: {}, mods: {}",
+            modding_xml_path_str, mods_dir_path_str
+        );
+    } else {
+        debug!("Besiege.exeの親ディレクトリを取得できないため、派生パスを初期化できません");
+    }
+}
+
+/// Workshopパスから派生するパスを更新
+pub fn update_paths_from_workshop() {
+    trace_fn!("update_paths_from_workshop()");
+
+    let workshop_path = config::get_workshop_path();
+    if workshop_path.is_empty() {
+        debug!("Workshopパスが設定されていないため、派生パスを初期化できません");
+        return;
+    }
+
+    // BesiegeWorkshopパスを設定
+    let workshop_dir = Path::new(&workshop_path);
+    let besiege_workshop_path = workshop_dir.join(BESIEGE_WORKSHOP_DIR_RELATIVE_PATH);
+    let besiege_workshop_path_str = path_to_normalized_string(&besiege_workshop_path);
+    let _ = set_runtime_value(
+        RUNTIME_KEY_BESIEGE_WORKSHOP_PATH,
+        &besiege_workshop_path_str,
+    );
+
+    debug!(
+        "Workshopから派生パスを更新しました: BesiegeWorkshop: {}",
+        besiege_workshop_path_str
+    );
 }
 
 /// グローバルランタイム設定を更新する
@@ -75,6 +163,10 @@ pub fn reset_runtime_config() -> Result<(), BallistaError> {
     let config = RuntimeConfig::default();
     update_global_runtime_config(config);
     info!("ランタイム設定をリセットしました");
+
+    // 派生パスを再初期化
+    initialize_derived_paths();
+
     Ok(())
 }
 
@@ -90,7 +182,7 @@ pub fn reset_runtime_config() -> Result<(), BallistaError> {
 /// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn set_runtime_value(key: &str, value: &str) -> Result<(), BallistaError> {
     trace_fn!("set_runtime_value(key: {}, value: {})", key, value);
-    
+
     if let Ok(mut runtime_config) = RUNTIME_CONFIG.lock() {
         if let Some(config) = &mut *runtime_config {
             config.values.insert(key.to_string(), value.to_string());
@@ -98,7 +190,7 @@ pub fn set_runtime_value(key: &str, value: &str) -> Result<(), BallistaError> {
             return Ok(());
         }
     }
-    
+
     Err(BallistaError::ConfigError {
         message: "ランタイム設定が初期化されていません".to_string(),
         context_info: String::new(),
@@ -116,13 +208,13 @@ pub fn set_runtime_value(key: &str, value: &str) -> Result<(), BallistaError> {
 /// 設定値。設定が存在しない場合は`None`
 pub fn get_runtime_value(key: &str) -> Option<String> {
     trace_fn!("get_runtime_value(key: {})", key);
-    
+
     if let Ok(runtime_config) = RUNTIME_CONFIG.lock() {
         if let Some(config) = &*runtime_config {
             return config.values.get(key).cloned();
         }
     }
-    
+
     None
 }
 
@@ -137,7 +229,7 @@ pub fn get_runtime_value(key: &str) -> Option<String> {
 /// 設定の削除に成功した場合は`Ok(())`、失敗した場合は`Err`
 pub fn remove_runtime_value(key: &str) -> Result<(), BallistaError> {
     trace_fn!("remove_runtime_value(key: {})", key);
-    
+
     if let Ok(mut runtime_config) = RUNTIME_CONFIG.lock() {
         if let Some(config) = &mut *runtime_config {
             config.values.remove(key);
@@ -145,7 +237,7 @@ pub fn remove_runtime_value(key: &str) -> Result<(), BallistaError> {
             return Ok(());
         }
     }
-    
+
     Err(BallistaError::ConfigError {
         message: "ランタイム設定が初期化されていません".to_string(),
         context_info: String::new(),
@@ -163,13 +255,13 @@ pub fn remove_runtime_value(key: &str) -> Result<(), BallistaError> {
 /// 設定値が存在する場合は`true`、存在しない場合は`false`
 pub fn has_runtime_value(key: &str) -> bool {
     trace_fn!("has_runtime_value(key: {})", key);
-    
+
     if let Ok(runtime_config) = RUNTIME_CONFIG.lock() {
         if let Some(config) = &*runtime_config {
             return config.values.contains_key(key);
         }
     }
-    
+
     false
 }
 
@@ -187,60 +279,36 @@ pub fn log_runtime_config() {
     }
 }
 
-/// 便利なアクセス関数: modding.xmlのパスを設定する
-///
-/// # 引数
-///
-/// * `path` - modding.xmlのパス
-///
-/// # 戻り値
-///
-/// 設定の更新に成功した場合は`Ok(())`、失敗した場合は`Err`
-pub fn set_modding_xml_path(path: &str) -> Result<(), BallistaError> {
-    trace_fn!("set_modding_xml_path(path: {})", path);
-    set_runtime_value("modding_xml_path", path)
-}
-
-/// 便利なアクセス関数: modding.xmlのパスを取得する
-///
-/// # 戻り値
-///
-/// modding.xmlのパス。設定が存在しない場合は`None`
-pub fn get_modding_xml_path() -> Option<String> {
-    trace_fn!("get_modding_xml_path()");
-    get_runtime_value("modding_xml_path")
-}
-
 /// ランタイム設定が初期化されているかどうかを確認する
 fn check_runtime_config_initialized() -> Result<(), BallistaError> {
     trace_fn!("check_runtime_config_initialized()");
-    
+
     if let Ok(runtime_config) = RUNTIME_CONFIG.lock() {
         if runtime_config.is_some() {
             return Ok(());
         }
     }
-    
+
     Err(BallistaError::ConfigError {
         message: "ランタイム設定が初期化されていません".to_string(),
         context_info: String::new(),
     })
 }
 
-/// ModdingXMLのパスが設定されているかどうかを確認する
-fn check_modding_xml_path_set() -> Result<(), BallistaError> {
-    trace_fn!("check_modding_xml_path_set()");
-    
-    if let Ok(runtime_config) = RUNTIME_CONFIG.lock() {
-        if let Some(config) = &*runtime_config {
-            if config.values.contains_key("modding_xml_path") {
-                return Ok(());
-            }
-        }
-    }
-    
-    Err(BallistaError::ConfigError {
-        message: "ランタイム設定が初期化されていません".to_string(),
-        context_info: String::new(),
-    })
+/// modding.xmlのパスを取得する
+pub fn get_modding_xml_path() -> Option<String> {
+    trace_fn!("get_modding_xml_path()");
+    get_runtime_value(RUNTIME_KEY_MODDING_XML_PATH)
+}
+
+/// modsディレクトリのパスを取得する
+pub fn get_mods_dir_path() -> Option<String> {
+    trace_fn!("get_mods_dir_path()");
+    get_runtime_value(RUNTIME_KEY_MODS_DIR_PATH)
+}
+
+/// BesiegeWorkshopディレクトリのパスを取得する
+pub fn get_besiege_workshop_path() -> Option<String> {
+    trace_fn!("get_besiege_workshop_path()");
+    get_runtime_value(RUNTIME_KEY_BESIEGE_WORKSHOP_PATH)
 }

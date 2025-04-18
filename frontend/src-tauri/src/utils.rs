@@ -29,6 +29,24 @@ impl PathType {
     }
 }
 
+/// パス文字列を正規化する
+///
+/// 以下の処理を行います：
+/// - 先頭と末尾の空白を削除
+/// - バックスラッシュをスラッシュに置換
+///
+/// # 引数
+///
+/// * `path` - 正規化するパス文字列
+///
+/// # 戻り値
+///
+/// 正規化されたパス文字列
+pub fn normalize_path(path: &str) -> String {
+    trace_fn!("normalize_path(path: {})", path);
+    path.trim().replace('\\', "/").to_string()
+}
+
 /// 共通のパス検証を行う内部関数
 ///
 /// 以下の条件をチェックします：
@@ -165,5 +183,5 @@ pub fn expand_env_vars(path: &str) -> String {
     // 必要に応じて他の環境変数も展開することができます
     
     // パスの区切り文字を正規化
-    result.replace('\\', "/")
+    normalize_path(&result)
 }

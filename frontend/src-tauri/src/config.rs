@@ -18,7 +18,9 @@ use crate::error::BallistaError;
 use crate::utils::validate_file_path;
 use crate::utils::validate_directory_path;
 use crate::utils::expand_env_vars;
+use crate::utils::normalize_path;
 use crate::constants::*;
+use crate::runtime_config;
 
 /// アプリケーション全体の設定を表す構造体
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -294,20 +296,6 @@ where
     default
 }
 
-/// パスの正規化を行う
-///
-/// # 引数
-///
-/// * `path` - 正規化するパス
-///
-/// # 戻り値
-///
-/// 正規化されたパス
-fn normalize_path(path: &str) -> String {
-    trace_fn!("normalize_path(path: {})", path);
-    path.trim().replace('\\', "/").to_string()
-}
-
 /// 設定値を更新するための汎用関数
 ///
 /// # 引数
@@ -376,7 +364,7 @@ pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), Ballis
     trace_fn!("set_besiege_path(path: {})", path);
     let path_normalized = normalize_path(path);
     
-    update_config_value(
+    let result = update_config_value(
         app_handle,
         || {
             validate_besiege_path(&path)
@@ -385,7 +373,14 @@ pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), Ballis
             config.path.besiege_path = path_normalized.clone();
         },
         &format!("Besiegeのパスを更新しました: {}", path_normalized)
-    )
+    );
+
+    // 設定更新が成功したら、ランタイム設定の派生パスも更新
+    if result.is_ok() {
+        runtime_config::update_paths_from_besiege_exe();
+    }
+
+    result
 }
 
 /// Besiegeのパスを検証する
@@ -480,7 +475,7 @@ pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), Balli
     let path_normalized = normalize_path(path);
     trace_fn!("set_workshop_path(app_handle: &AppHandle, path: {})", path_normalized);
     
-    update_config_value(
+    let result = update_config_value(
         app_handle,
         || {
             validate_workshop_path(&path_normalized)
@@ -489,7 +484,14 @@ pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), Balli
             config.path.workshop_dir_path = path_normalized.clone();
         },
         &format!("Steam Workshopのパスを更新しました: {}", path_normalized)
-    )
+    );
+
+    // 設定更新が成功したら、ランタイム設定の派生パスも更新
+    if result.is_ok() {
+        runtime_config::update_paths_from_workshop();
+    }
+
+    result
 }
 
 /// Steam Workshopのパスを検証する
@@ -696,10 +698,13 @@ fn update_global_config(config: AppConfig) {
 /// * `config` - ログに出力する設定
 fn log_current_config(config: &AppConfig) {
     trace_fn!("log_current_config(config: {:?})", config);
-    info!("設定を更新しました: ログレベル = {}, テーマ = {}, 言語 = {}", 
-        config.logging.level, config.ui.theme, config.ui.language);
-    info!("パス設定: Besiege = {}, Workshop = {}, Ballistaデータ = {}", 
-        config.path.besiege_path, config.path.workshop_dir_path, config.path.ballista_data_path);
+    debug!("設定: Besiege.exe = {}", config.path.besiege_path);
+    debug!("設定: Workshop = {}", config.path.workshop_dir_path);
+    debug!("設定: BallistaData = {}", config.path.ballista_data_path);
+    debug!("設定: ログレベル = {}", config.logging.level);
+    debug!("設定: 最大ログファイル数 = {}", config.logging.max_files);
+    debug!("設定: UIテーマ = {}", config.ui.theme);
+    debug!("設定: 言語 = {}", config.ui.language);
 }
 
 /// アプリケーションの設定を更新する
@@ -718,4 +723,8 @@ pub fn update_config(app_handle: &AppHandle) {
     
     // 現在の設定をログに出力
     log_current_config(&config);
+    
+    // ランタイム設定の派生パスを更新
+    runtime_config::update_paths_from_besiege_exe();
+    runtime_config::update_paths_from_workshop();
 }

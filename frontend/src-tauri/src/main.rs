@@ -150,8 +150,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             api::runtime_config_operations::get_runtime_value,
             api::runtime_config_operations::remove_runtime_value,
             api::runtime_config_operations::has_runtime_value,
-            api::runtime_config_operations::set_modding_xml_path,
-            api::runtime_config_operations::get_modding_xml_path,
             
             // アプリケーション操作系API
             api::app_operations::log_message,
