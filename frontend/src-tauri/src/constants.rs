@@ -34,7 +34,7 @@ pub const DEFAULT_LOG_LEVEL: &str = "trace";
 pub const DEFAULT_MAX_LOG_FILES: usize = 10;
 
 /// デフォルトのUIテーマ
-pub const DEFAULT_UI_THEME: &str = "light";
+pub const DEFAULT_UI_THEME: &str = "dark";
 
 /// デフォルトの言語設定
 pub const DEFAULT_LANGUAGE: &str = "ja";

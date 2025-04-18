@@ -7,7 +7,7 @@
         <v-row>
             <v-col cols="12" md="6">
                 <v-card variant="outlined">
-                    <v-card-title class="bg-blue-lighten-5">
+                    <v-card-title class="bg-primary-lighten-3 dark:bg-primary-darken-3">
                         設定取得
                     </v-card-title>
                     <v-card-text>
@@ -21,37 +21,37 @@
             </v-col>
             <v-col cols="12" md="6">
                 <v-card variant="outlined">
-                    <v-card-title class="bg-blue-lighten-5">
+                    <v-card-title class="bg-primary-lighten-3 dark:bg-primary-darken-3">
                         設定更新
                     </v-card-title>
                     <v-card-text>
                         <v-row>
                             <v-col cols="12">
-                                <div class="d-flex align-center">
-                                    <v-text-field v-model="configUpdate.path.besiege_path"
-                                        label="Besiegeのパス" @update:model-value="updateBesiegePath" class="flex-grow-1 mr-2"></v-text-field>
-                                    <v-btn color="primary" icon @click="selectBesiegeExe" title="Besiege.exeを選択">
-                                        <v-icon>mdi-folder-open</v-icon>
-                                    </v-btn>
-                                </div>
+                                <FilePathInput
+                                    v-model="configUpdate.path.besiege_path"
+                                    title="Besiegeのパス"
+                                    placeholder="Besiegeの実行ファイルのパスを入力してください"
+                                    :readOnly="true"
+                                    :onButtonClick="selectBesiegeExe"
+                                />
                             </v-col>
                             <v-col cols="12">
-                                <div class="d-flex align-center">
-                                    <v-text-field v-model="configUpdate.path.workshop_dir_path"
-                                        label="Steam Workshopのパス" @update:model-value="updateWorkshopPath" class="flex-grow-1 mr-2"></v-text-field>
-                                    <v-btn color="primary" icon @click="selectWorkshopDir" title="Workshopディレクトリを選択">
-                                        <v-icon>mdi-folder-open</v-icon>
-                                    </v-btn>
-                                </div>
+                                <FilePathInput
+                                    v-model="configUpdate.path.workshop_dir_path"
+                                    title="Steam Workshopのパス"
+                                    placeholder="Steam Workshopディレクトリのパスを入力してください"
+                                    :readOnly="true"
+                                    :onButtonClick="selectWorkshopDir"
+                                />
                             </v-col>
                             <v-col cols="12">
-                                <div class="d-flex align-center">
-                                    <v-text-field v-model="configUpdate.path.ballista_data_path"
-                                        label="Ballistaデータパス" @update:model-value="updateBallistaDataPath" class="flex-grow-1 mr-2"></v-text-field>
-                                    <v-btn color="primary" icon @click="selectBallistaDataDir" title="Ballistaデータディレクトリを選択">
-                                        <v-icon>mdi-folder-open</v-icon>
-                                    </v-btn>
-                                </div>
+                                <FilePathInput
+                                    v-model="configUpdate.path.ballista_data_path"
+                                    title="Ballistaデータパス"
+                                    placeholder="Ballistaデータディレクトリのパスを入力してください"
+                                    :readOnly="true"
+                                    :onButtonClick="selectBallistaDataDir"
+                                />
                             </v-col>
                             <v-col cols="12" md="6">
                                 <v-select v-model="configUpdate.ui.theme"
@@ -75,6 +75,8 @@
 import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
 import { open, message } from '@tauri-apps/api/dialog';
+import { updateTheme } from '../../main';
+import FilePathInput from '../../components/FilePathInput.vue';
 
 const props = defineProps<{
     logMessage: (level: string, message: string) => void;
@@ -100,7 +102,7 @@ interface LoggingConfig {
 }
 
 interface UiConfig {
-    theme: string;
+    theme: 'light' | 'dark' | 'system';
     language: string;
 }
 
@@ -126,7 +128,7 @@ const configUpdate = ref<AppConfig>({
         max_files: 10
     },
     ui: {
-        theme: 'light',
+        theme: 'dark',
         language: 'ja'
     }
 });
@@ -148,35 +150,6 @@ async function getConfig(): Promise<void> {
     }
 }
 
-/**
- * Besiegeのパスを更新する
- */
-async function updateBesiegePath(): Promise<void> {
-    try {
-        log('info', `Besiegeのパスを更新中... (${configUpdate.value.path.besiege_path})`);
-        await invoke('set_besiege_path', { path: configUpdate.value.path.besiege_path });
-        log('info', 'Besiegeのパスを更新しました');
-        await getConfig(); // 設定を再取得して最新状態を反映
-        emit('config-updated');
-    } catch (error) {
-        log('error', `Besiegeパス更新エラー: ${error}`);
-    }
-}
-
-/**
- * Steam Workshopのパスを更新する
- */
-async function updateWorkshopPath(): Promise<void> {
-    try {
-        log('info', `Steam Workshopのパスを更新中... (${configUpdate.value.path.workshop_dir_path})`);
-        await invoke('set_workshop_path', { path: configUpdate.value.path.workshop_dir_path });
-        log('info', 'Steam Workshopのパスを更新しました');
-        await getConfig(); // 設定を再取得して最新状態を反映
-        emit('config-updated');
-    } catch (error) {
-        log('error', `Workshopパス更新エラー: ${error}`);
-    }
-}
 
 /**
  * Ballistaデータパスを更新する
@@ -200,6 +173,10 @@ async function updateUiTheme(): Promise<void> {
     try {
         log('info', `UIテーマを更新中... (${configUpdate.value.ui.theme})`);
         await invoke('set_ui_theme', { theme: configUpdate.value.ui.theme });
+        
+        // Vuetifyのテーマも更新
+        updateTheme(configUpdate.value.ui.theme as 'light' | 'dark' | 'system');
+        
         log('info', 'UIテーマを更新しました');
         await getConfig(); // 設定を再取得して最新状態を反映
         emit('config-updated');

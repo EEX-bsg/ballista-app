@@ -14,10 +14,10 @@
             </v-btn>
         </v-app-bar>
 
-        <v-main class="bg-grey-lighten-4">
+        <v-main>
             <v-container fluid>
                 <!-- API テストタブ -->
-                <v-tabs v-model="activeTab" bg-color="primary" color="white">
+                <v-tabs v-model="activeTab" bg-color="primary">
                     <v-tab value="config">設定系API</v-tab>
                     <v-tab value="mods">MOD管理API</v-tab>
                     <v-tab value="backup">バックアップAPI</v-tab>
@@ -61,6 +61,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { createLogger } from '../utils/logger';
+import { updateTheme } from '../main';
 import ConfigTab from './components/ConfigTab.vue';
 import ModsTab from './components/ModsTab.vue';
 import BackupTab from './components/BackupTab.vue';
@@ -93,6 +94,15 @@ function clearLogs(): void {
  */
 function onConfigUpdated(): void {
     logMessage('info', '設定が更新されました');
+    // 設定が更新されたらカラーテーマも更新する
+    import('@tauri-apps/api/tauri').then(({ invoke }) => {
+        invoke<'light' | 'dark' | 'system'>('get_ui_theme').then(theme => {
+            updateTheme(theme);
+            logMessage('info', `テーマを「${theme}」に更新しました`);
+        }).catch(error => {
+            logMessage('error', `テーマ更新エラー: ${error}`);
+        });
+    });
 }
 
 // 初期化
