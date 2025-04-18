@@ -2,57 +2,61 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::path::{Path, PathBuf};
-use std::fs;
-use chrono::{DateTime, Local};
-use log::{debug, info, trace, warn};
-use serde::{Deserialize, Serialize};
-use walkdir::WalkDir;
-use crate::core::modding::{ModInfo, ModdingXmlData};
-use crate::core::backup;
-use crate::error::BallistaError;
+//! プリセット管理モジュール
+//!
+//! このモジュールは、MOD構成のプリセットを管理するための機能を提供します。
 
+use log::{debug, info, warn};
+use std::fs;
+use std::path::{Path, PathBuf};
+use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Local};
+use crate::trace_fn;
+use crate::error::BallistaError;
+use crate::core::modding::ModdingXmlData;
+
+/// プリセット情報を表す構造体
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PresetInfo {
     pub name: String,
     pub description: Option<String>,
     pub created_at: DateTime<Local>,
     pub modified_at: DateTime<Local>,
-    pub mod_count: usize,
-    pub enabled_count: usize,
-    pub disabled_count: usize,
-    pub path: PathBuf,
+    pub path: String,
 }
 
+/// プリセットデータを表す構造体
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PresetData {
     pub name: String,
     pub description: Option<String>,
     pub created_at: DateTime<Local>,
     pub modified_at: DateTime<Local>,
-    pub mods: Vec<ModInfo>,
-    pub game_version: Option<String>,
+    pub mods: ModdingXmlData,
 }
 
 /// プリセットディレクトリを取得する
 pub fn get_preset_dir() -> Result<PathBuf, BallistaError> {
     trace_fn!("get_preset_dir()");
+    let app_data_dir = dirs_next::data_dir()
+        .ok_or_else(|| BallistaError::PresetError {
+            message: "アプリケーションデータディレクトリが見つかりません".to_string(),
+            context_info: String::new(),
+        })?;
     
-    // アプリケーションデータディレクトリを取得
-    let data_dir = dirs_next::data_dir()
-        .ok_or_else(|| BallistaError::PresetError("アプリケーションデータディレクトリが見つかりません".to_string()))?;
+    let preset_dir = app_data_dir.join("ballista-app").join("presets");
     
-    // プリセットディレクトリのパスを生成
-    let preset_dir = data_dir.join("ballista-app").join("presets");
-    
-    // ディレクトリが存在しない場合は作成
+    // ディレクトリが存在しなければ作成
     if !preset_dir.exists() {
-        if let Err(e) = fs::create_dir_all(&preset_dir) {
-            return Err(BallistaError::PresetError(format!("プリセットディレクトリの作成に失敗しました: {}", e)));
+        match fs::create_dir_all(&preset_dir) {
+            Ok(_) => debug!("プリセットディレクトリを作成しました: {}", preset_dir.display()),
+            Err(e) => return Err(BallistaError::PresetError {
+                message: format!("プリセットディレクトリの作成に失敗しました: {}", e),
+                context_info: String::new(),
+            }),
         }
     }
     
-    debug!("プリセットディレクトリ: {}", preset_dir.display());
     Ok(preset_dir)
 }
 
@@ -61,44 +65,57 @@ pub fn save_preset(name: &str, description: Option<&str>, data: &ModdingXmlData)
     trace_fn!("save_preset(name: {}, description: {:?})", name, description);
     
     // プリセット名のバリデーション
-    if name.trim().is_empty() {
-        return Err(BallistaError::PresetError("プリセット名は空にできません".to_string()));
+    if name.is_empty() {
+        return Err(BallistaError::PresetError {
+            message: "プリセット名は空にできません".to_string(),
+            context_info: String::new(),
+        });
     }
     
-    if name.contains(|c: char| c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
-        return Err(BallistaError::PresetError("プリセット名に無効な文字が含まれています".to_string()));
+    if name.contains(|c: char| !c.is_alphanumeric() && c != ' ' && c != '_' && c != '-') {
+        return Err(BallistaError::PresetError {
+            message: "プリセット名に無効な文字が含まれています".to_string(),
+            context_info: String::new(),
+        });
     }
     
-    // プリセットディレクトリを取得
+    // プリセットディレクトリの取得
     let preset_dir = get_preset_dir()?;
     
-    // プリセットファイルのパスを生成
-    let file_name = format!("{}.json", name);
-    let preset_path = preset_dir.join(&file_name);
+    // ファイル名の作成（スペースは_に置換）
+    let file_name = format!("{}.json", name.replace(' ', "_"));
+    let preset_path = preset_dir.join(file_name);
     
-    // プリセットデータを作成
-    let current_time = Local::now();
+    // 現在の時刻を取得
+    let now = Local::now();
+    
+    // プリセットデータの作成
     let preset_data = PresetData {
         name: name.to_string(),
         description: description.map(|s| s.to_string()),
-        created_at: current_time,
-        modified_at: current_time,
-        mods: data.enabled_mods.iter().chain(data.disabled_mods.iter()).cloned().collect(),
-        game_version: data.game_version.clone(),
+        created_at: now,
+        modified_at: now,
+        mods: data.clone(),
     };
     
     // JSONに変換
-    let json = match serde_json::to_string_pretty(&preset_data) {
-        Ok(json) => json,
-        Err(e) => return Err(BallistaError::PresetError(format!("プリセットデータのJSON変換に失敗しました: {}", e))),
+    let json_data = match serde_json::to_string_pretty(&preset_data) {
+        Ok(data) => data,
+        Err(e) => return Err(BallistaError::PresetError {
+            message: format!("プリセットデータのJSON変換に失敗しました: {}", e),
+            context_info: String::new(),
+        }),
     };
     
-    // ファイルに書き込む
-    if let Err(e) = fs::write(&preset_path, json) {
-        return Err(BallistaError::PresetError(format!("プリセットファイルの書き込みに失敗しました: {}", e)));
+    // ファイルに書き込み
+    match fs::write(&preset_path, json_data) {
+        Ok(_) => info!("プリセットを保存しました: {}", preset_path.display()),
+        Err(e) => return Err(BallistaError::PresetError {
+            message: format!("プリセットファイルの書き込みに失敗しました: {}", e),
+            context_info: String::new(),
+        }),
     }
     
-    info!("プリセットを保存しました: {}", preset_path.display());
     Ok(preset_path)
 }
 
@@ -106,24 +123,33 @@ pub fn save_preset(name: &str, description: Option<&str>, data: &ModdingXmlData)
 pub fn load_preset(preset_path: &Path) -> Result<PresetData, BallistaError> {
     trace_fn!("load_preset(preset_path: {})", preset_path.display());
     
-    // ファイルが存在することを確認
+    // ファイルの存在確認
     if !preset_path.exists() {
-        return Err(BallistaError::PresetError(format!("プリセットファイルが存在しません: {}", preset_path.display())));
+        return Err(BallistaError::PresetError {
+            message: format!("プリセットファイルが存在しません: {}", preset_path.display()),
+            context_info: String::new(),
+        });
     }
     
-    // ファイル内容を読み込み
-    let content = match fs::read_to_string(preset_path) {
+    // ファイルを読み込む
+    let file_content = match fs::read_to_string(preset_path) {
         Ok(content) => content,
-        Err(e) => return Err(BallistaError::PresetError(format!("プリセットファイルの読み込みに失敗しました: {}", e))),
+        Err(e) => return Err(BallistaError::PresetError {
+            message: format!("プリセットファイルの読み込みに失敗しました: {}", e),
+            context_info: String::new(),
+        }),
     };
     
     // JSONをパース
-    match serde_json::from_str::<PresetData>(&content) {
+    match serde_json::from_str::<PresetData>(&file_content) {
         Ok(preset) => {
             debug!("プリセットを読み込みました: {}", preset_path.display());
             Ok(preset)
         },
-        Err(e) => Err(BallistaError::PresetError(format!("プリセットデータのパースに失敗しました: {}", e))),
+        Err(e) => Err(BallistaError::PresetError {
+            message: format!("プリセットデータのパースに失敗しました: {}", e),
+            context_info: String::new(),
+        }),
     }
 }
 
@@ -131,42 +157,48 @@ pub fn load_preset(preset_path: &Path) -> Result<PresetData, BallistaError> {
 pub fn get_preset_list() -> Result<Vec<PresetInfo>, BallistaError> {
     trace_fn!("get_preset_list()");
     
-    // プリセットディレクトリを取得
     let preset_dir = get_preset_dir()?;
-    
-    // プリセットファイルのリストを取得
     let mut presets = Vec::new();
     
-    for entry in WalkDir::new(&preset_dir).max_depth(1).into_iter().filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
-            match load_preset(path) {
-                Ok(preset_data) => {
-                    let enabled_count = preset_data.mods.iter().filter(|m| m.enabled).count();
-                    let disabled_count = preset_data.mods.len() - enabled_count;
+    if !preset_dir.exists() {
+        return Ok(presets);
+    }
+    
+    // ディレクトリを読み込む
+    match fs::read_dir(&preset_dir) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
                     
-                    presets.push(PresetInfo {
-                        name: preset_data.name,
-                        description: preset_data.description,
-                        created_at: preset_data.created_at,
-                        modified_at: preset_data.modified_at,
-                        mod_count: preset_data.mods.len(),
-                        enabled_count,
-                        disabled_count,
-                        path: path.to_path_buf(),
-                    });
-                },
-                Err(e) => {
-                    warn!("プリセットの読み込みに失敗しました: {}: {}", path.display(), e);
+                    // JSONファイルのみ処理
+                    if path.is_file() && path.extension().map_or(false, |ext| ext == "json") {
+                        match load_preset(&path) {
+                            Ok(preset_data) => {
+                                presets.push(PresetInfo {
+                                    name: preset_data.name,
+                                    description: preset_data.description,
+                                    created_at: preset_data.created_at,
+                                    modified_at: preset_data.modified_at,
+                                    path: path.to_string_lossy().to_string(),
+                                });
+                            },
+                            Err(e) => {
+                                warn!("プリセットの読み込みに失敗しました: {}", e);
+                            }
+                        }
+                    }
                 }
             }
+        },
+        Err(e) => {
+            warn!("プリセットディレクトリの読み込みに失敗しました: {}", e);
         }
     }
     
-    // 更新日時で新しい順にソート
-    presets.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+    // 作成日時の新しい順にソート
+    presets.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     
-    debug!("プリセット一覧を取得しました: {} 件", presets.len());
     Ok(presets)
 }
 
@@ -176,7 +208,10 @@ pub fn delete_preset(preset_path: &Path) -> Result<(), BallistaError> {
     
     // ファイルが存在することを確認
     if !preset_path.exists() {
-        return Err(BallistaError::PresetError(format!("プリセットファイルが存在しません: {}", preset_path.display())));
+        return Err(BallistaError::PresetError {
+            message: format!("プリセットファイルが存在しません: {}", preset_path.display()),
+            context_info: String::new(),
+        });
     }
     
     // ファイルを削除
@@ -185,6 +220,9 @@ pub fn delete_preset(preset_path: &Path) -> Result<(), BallistaError> {
             info!("プリセットを削除しました: {}", preset_path.display());
             Ok(())
         },
-        Err(e) => Err(BallistaError::PresetError(format!("プリセットの削除に失敗しました: {}", e))),
+        Err(e) => Err(BallistaError::PresetError {
+            message: format!("プリセットの削除に失敗しました: {}", e),
+            context_info: String::new(),
+        }),
     }
 }

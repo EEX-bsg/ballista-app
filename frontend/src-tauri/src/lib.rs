@@ -22,6 +22,9 @@ pub mod error;
 pub mod config;
 pub mod runtime_config;
 
+// 定数設定保持
+pub mod constants;
+
 // ユーティリティ関数
 pub mod utils;
 

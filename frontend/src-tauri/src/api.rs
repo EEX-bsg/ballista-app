@@ -32,10 +32,14 @@ pub mod file_operations {
         trace_fn!("select_modding_xml()");
         info!("ファイル選択ダイアログを表示します");
         
-        let file_path: PathBuf = FileDialogBuilder::new()
+        let file_path = tauri::api::dialog::blocking::FileDialogBuilder::new()
+            .set_title("Modding.xmlファイルを選択")
             .add_filter("XML", &["xml"])
             .pick_file()
-            .ok_or_else(|| BallistaError::FileError("ファイルが選択されませんでした".to_string()))?;
+            .ok_or_else(|| BallistaError::FileError {
+                message: "ファイルが選択されませんでした".to_string(),
+                context_info: String::new(),
+            })?;
         
         info!("ファイルが選択されました: {}", file_path.display());
         

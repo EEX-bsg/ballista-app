@@ -99,7 +99,10 @@ pub fn set_runtime_value(key: &str, value: &str) -> Result<(), BallistaError> {
         }
     }
     
-    Err(BallistaError::ConfigError("ランタイム設定が初期化されていません".to_string()))
+    Err(BallistaError::ConfigError {
+        message: "ランタイム設定が初期化されていません".to_string(),
+        context_info: String::new(),
+    })
 }
 
 /// ランタイム設定値を取得する
@@ -143,7 +146,10 @@ pub fn remove_runtime_value(key: &str) -> Result<(), BallistaError> {
         }
     }
     
-    Err(BallistaError::ConfigError("ランタイム設定が初期化されていません".to_string()))
+    Err(BallistaError::ConfigError {
+        message: "ランタイム設定が初期化されていません".to_string(),
+        context_info: String::new(),
+    })
 }
 
 /// ランタイム設定値が存在するかどうかを確認する
@@ -203,4 +209,38 @@ pub fn set_modding_xml_path(path: &str) -> Result<(), BallistaError> {
 pub fn get_modding_xml_path() -> Option<String> {
     trace_fn!("get_modding_xml_path()");
     get_runtime_value("modding_xml_path")
+}
+
+/// ランタイム設定が初期化されているかどうかを確認する
+fn check_runtime_config_initialized() -> Result<(), BallistaError> {
+    trace_fn!("check_runtime_config_initialized()");
+    
+    if let Ok(runtime_config) = RUNTIME_CONFIG.lock() {
+        if runtime_config.is_some() {
+            return Ok(());
+        }
+    }
+    
+    Err(BallistaError::ConfigError {
+        message: "ランタイム設定が初期化されていません".to_string(),
+        context_info: String::new(),
+    })
+}
+
+/// ModdingXMLのパスが設定されているかどうかを確認する
+fn check_modding_xml_path_set() -> Result<(), BallistaError> {
+    trace_fn!("check_modding_xml_path_set()");
+    
+    if let Ok(runtime_config) = RUNTIME_CONFIG.lock() {
+        if let Some(config) = &*runtime_config {
+            if config.values.contains_key("modding_xml_path") {
+                return Ok(());
+            }
+        }
+    }
+    
+    Err(BallistaError::ConfigError {
+        message: "ランタイム設定が初期化されていません".to_string(),
+        context_info: String::new(),
+    })
 }

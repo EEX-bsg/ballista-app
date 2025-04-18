@@ -74,7 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/tauri';
-import { open } from '@tauri-apps/api/dialog';
+import { open, message } from '@tauri-apps/api/dialog';
 
 const props = defineProps<{
     logMessage: (level: string, message: string) => void;
@@ -240,11 +240,23 @@ async function selectBesiegeExe(): Promise<void> {
         });
         
         if (selected && typeof selected === 'string') {
-            configUpdate.value.path.besiege_path = selected;
-            await updateBesiegePath();
+            try {
+                log('info', `Besiegeのパスを更新中... (${selected})`);
+                await invoke('set_besiege_path', { path: selected });
+                log('info', 'Besiegeのパスを更新しました');
+                await getConfig(); // 設定を再取得して最新状態を反映
+                emit('config-updated');
+            } catch (error) {
+                log('error', `Besiegeパス更新エラー: ${error}`);
+                // エラーダイアログを表示
+                await message(`ファイルパスの設定に失敗しました\n${error}`, { title: 'エラー', type: 'error' });
+                // 再度ファイル選択ダイアログを表示
+                selectBesiegeExe();
+            }
         }
     } catch (error) {
         log('error', `ファイル選択エラー: ${error}`);
+        await message(`ファイル選択エラー\n${error}`, { title: 'エラー', type: 'error' });
     }
 }
 
@@ -261,8 +273,19 @@ async function selectWorkshopDir(): Promise<void> {
         });
         
         if (selected && typeof selected === 'string') {
-            configUpdate.value.path.workshop_dir_path = selected;
-            await updateWorkshopPath();
+            try {
+                log('info', `Steam Workshopのパスを更新中... (${selected})`);
+                await invoke('set_workshop_path', { path: selected });
+                log('info', 'Steam Workshopのパスを更新しました');
+                await getConfig(); // 設定を再取得して最新状態を反映
+                emit('config-updated');
+            } catch (error) {
+                log('error', `Workshopパス更新エラー: ${error}`);
+                // エラーダイアログを表示
+                await message(`ファイルパスの設定に失敗しました\n${error}`, { title: 'エラー', type: 'error' });
+                // 再度ファイル選択ダイアログを表示
+                selectWorkshopDir();
+            }
         }
     } catch (error) {
         log('error', `ディレクトリ選択エラー: ${error}`);

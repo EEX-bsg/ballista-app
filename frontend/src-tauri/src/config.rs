@@ -9,12 +9,16 @@
 
 use log::{debug, error, info, LevelFilter};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, sync::{Arc, Mutex}};
+use std::{fs, path::PathBuf, sync::{Arc, Mutex}, env};
 use tauri::AppHandle;
 
 use crate::logger;
 use crate::trace_fn;
 use crate::error::BallistaError;
+use crate::utils::validate_file_path;
+use crate::utils::validate_directory_path;
+use crate::utils::expand_env_vars;
+use crate::constants::*;
 
 /// アプリケーション全体の設定を表す構造体
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -55,19 +59,21 @@ pub struct UiConfig {
 
 impl Default for AppConfig {
     fn default() -> Self {
+        let expanded_ballista_data_path = expand_env_vars(DEFAULT_BALLISTA_DATA_PATH);
+        
         Self {
             path: PathConfig {
-                besiege_path: "C:/Program Files (x86)/Steam/steamapps/common/Besiege/Besiege.exe".to_string(),
-                workshop_dir_path: "C:/Program Files (x86)/Steam/steamapps/workshop/content/346010".to_string(),
-                ballista_data_path: "$HOME/AppData/Roaming/ballista-app/".to_string(),
+                besiege_path: DEFAULT_BESIEGE_PATH.to_string(),
+                workshop_dir_path: DEFAULT_WORKSHOP_DIR_PATH.to_string(),
+                ballista_data_path: expanded_ballista_data_path,
             },
             logging: LoggingConfig {
-                level: "trace".to_string(),
-                max_files: 10,
+                level: DEFAULT_LOG_LEVEL.to_string(),
+                max_files: DEFAULT_MAX_LOG_FILES,
             },
             ui: UiConfig {
-                theme: "light".to_string(),
-                language: "ja".to_string(),
+                theme: DEFAULT_UI_THEME.to_string(),
+                language: DEFAULT_LANGUAGE.to_string(),
             },
         }
     }
@@ -239,7 +245,10 @@ pub fn set_log_level(app_handle: &AppHandle, level: &str) -> Result<(), Ballista
     // 有効なログレベルかチェック
     let log_filter = match level_lowercase.as_str() {
         "trace" | "debug" | "info" | "warn" | "error" | "off" => string_to_log_level(&level_lowercase),
-        _ => return Err(BallistaError::ConfigError(format!("無効なログレベル: {}", level))),
+        _ => return Err(BallistaError::ConfigError {
+            message: format!("無効なログレベル: {}", level),
+            context_info: String::new(),
+        }),
     };
     
     update_config_value(
@@ -366,22 +375,81 @@ pub fn get_besiege_path() -> String {
 pub fn set_besiege_path(app_handle: &AppHandle, path: &str) -> Result<(), BallistaError> {
     trace_fn!("set_besiege_path(path: {})", path);
     let path_normalized = normalize_path(path);
-    trace_fn!("set_besiege_path(app_handle: &AppHandle, path: {})", path_normalized);
     
     update_config_value(
         app_handle,
         || {
-            // パスが空でないことを確認
-            if path_normalized.is_empty() {
-                return Err(BallistaError::ConfigError("Besiegeのパスが空です".to_string()));
-            }
-            Ok(())
+            validate_besiege_path(&path)
         },
         |config| {
             config.path.besiege_path = path_normalized.clone();
         },
         &format!("Besiegeのパスを更新しました: {}", path_normalized)
     )
+}
+
+/// Besiegeのパスを検証する
+///
+/// # 引数
+///
+/// * `path` - 検証するBesiegeのパス
+///
+/// # 戻り値
+///
+/// 検証に成功した場合は`Ok(())`、失敗した場合は`Err`
+pub fn validate_besiege_path(path: &str) -> Result<(), BallistaError> {
+    trace_fn!("validate_besiege_path(path: {})", path);
+    let path_normalized = normalize_path(path);
+
+    // パスをPathObjectに変換
+    let path_obj = PathBuf::from(&path_normalized);
+
+    // 基本的なファイルパスの検証
+    validate_file_path(&path_obj)?;
+
+    // ファイル名が"Besiege.exe"であることを確認
+    if let Some(file_name) = path_obj.file_name() {
+        if file_name != "Besiege.exe" {
+            return Err(BallistaError::FileError {
+                message: format!("Besiege.exeではありません: {}", file_name.to_string_lossy()),
+                context_info: String::new(),
+            });
+        }
+    } else {
+        return Err(BallistaError::FileError {
+            message: "ファイル名が取得できません".to_string(),
+            context_info: String::new(),
+        });
+    }
+
+    // Besiegeディレクトリ(親ディレクトリ)の取得
+    let besiege_dir = path_obj.parent().ok_or_else(|| {
+        BallistaError::FileError {
+            message: "Besiegeディレクトリが取得できません".to_string(),
+            context_info: String::new(),
+        }
+    })?;
+
+    // Modsディレクトリの存在チェック
+    let mods_dir_path = besiege_dir.join(MODS_DIR_RELATIVE_PATH);
+    if(!mods_dir_path.exists() || !mods_dir_path.is_dir()){
+        return Err(BallistaError::FileError {
+            message: "Modsディレクトリが見つかりません".to_string(),
+            context_info: format!(": {}", mods_dir_path.display()),
+        });
+    }
+
+    // Modding.xmlの存在チェック
+    let modding_xml_path = besiege_dir.join(MODDING_CONFIG_RELATIVE_PATH);
+    if(!modding_xml_path.exists()) {
+        return Err(BallistaError::FileError {
+            message: "Modding.xmlが見つかりません".to_string(),
+            context_info: format!(": {}", modding_xml_path.display()),
+        });
+    }
+
+    // チェック完了
+    Ok(())
 }
 
 /// Steam Workshopのパスを取得する
@@ -415,17 +483,60 @@ pub fn set_workshop_path(app_handle: &AppHandle, path: &str) -> Result<(), Balli
     update_config_value(
         app_handle,
         || {
-            // パスが空でないことを確認
-            if path_normalized.is_empty() {
-                return Err(BallistaError::ConfigError("Steam Workshopのパスが空です".to_string()));
-            }
-            Ok(())
+            validate_workshop_path(&path_normalized)
         },
         |config| {
             config.path.workshop_dir_path = path_normalized.clone();
         },
         &format!("Steam Workshopのパスを更新しました: {}", path_normalized)
     )
+}
+
+/// Steam Workshopのパスを検証する
+///
+/// # 引数
+///
+/// * `path` - 検証するSteam Workshopのパス
+///
+/// # 戻り値
+///
+/// 検証に成功した場合は`Ok(())`、失敗した場合は`Err`
+pub fn validate_workshop_path(path: &str) -> Result<(), BallistaError> {
+    trace_fn!("validate_workshop_path(path: {})", path);
+    let path_normalized = normalize_path(path);
+
+    // パスをPathObjectに変換
+    let path_obj = PathBuf::from(&path_normalized);
+
+    // 基本的なディレクトリパスの検証
+    validate_directory_path(&path_obj)?;
+
+    // ディレクトリ名がworkshopであることを確認
+    if let Some(dir_name) = path_obj.file_name() {
+        if dir_name != "workshop" {
+            return Err(BallistaError::FileError {
+                message: "workshopディレクトリではありません".to_string(),
+                context_info: String::new(),
+            });
+        }
+    } else {
+        return Err(BallistaError::FileError {
+            message: "ディレクトリ名が取得できません".to_string(),
+            context_info: String::new(),
+        });
+    }
+
+    // BesiegeWorkshopディレクトリの存在チェック
+    let besiege_workshop_dir = path_obj.join(BESIEGE_WORKSHOP_DIR_RELATIVE_PATH);
+    if(!besiege_workshop_dir.exists() || !besiege_workshop_dir.is_dir()){
+        return Err(BallistaError::FileError {
+            message: "BesiegeWorkshopディレクトリが見つかりません".to_string(),
+            context_info: format!(": {}", besiege_workshop_dir.display()),
+        });
+    }
+
+    // チェック完了
+    Ok(())
 }
 
 /// Ballistaデータパスを取得する
@@ -459,11 +570,7 @@ pub fn set_ballista_data_path(app_handle: &AppHandle, path: &str) -> Result<(), 
     update_config_value(
         app_handle,
         || {
-            // パスが空でないことを確認
-            if path_normalized.is_empty() {
-                return Err(BallistaError::ConfigError("Ballistaデータパスが空です".to_string()));
-            }
-            Ok(())
+            validate_directory_path(&PathBuf::from(&path_normalized))
         },
         |config| {
             config.path.ballista_data_path = path_normalized.clone();
@@ -506,7 +613,10 @@ pub fn set_ui_theme(app_handle: &AppHandle, theme: &str) -> Result<(), BallistaE
             // 有効なテーマかチェック
             match theme_lowercase.as_str() {
                 "light" | "dark" | "system" => Ok(()),
-                _ => Err(BallistaError::ConfigError(format!("無効なUIテーマ: {}", theme))),
+                _ => Err(BallistaError::ConfigError {
+                    message: format!("無効なUIテーマ: {}", theme),
+                    context_info: String::new(),
+                }),
             }
         },
         |config| {
@@ -550,7 +660,10 @@ pub fn set_language(app_handle: &AppHandle, language: &str) -> Result<(), Ballis
             // 有効な言語かチェック
             match language_lowercase.as_str() {
                 "ja" | "en" => Ok(()),
-                _ => Err(BallistaError::ConfigError(format!("無効な言語設定: {}", language))),
+                _ => Err(BallistaError::ConfigError {
+                    message: format!("無効な言語設定: {}", language),
+                    context_info: String::new(),
+                }),
             }
         },
         |config| {
