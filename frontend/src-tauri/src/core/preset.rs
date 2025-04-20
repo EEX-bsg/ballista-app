@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Local};
 use crate::trace_fn;
 use crate::error::BallistaError;
-use crate::core::modding::ModdingXmlData;
+use crate::core::modding::ModListData;
 
 /// プリセット情報を表す構造体
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ pub struct PresetData {
     pub description: Option<String>,
     pub created_at: DateTime<Local>,
     pub modified_at: DateTime<Local>,
-    pub mods: ModdingXmlData,
+    pub mods: ModListData,
 }
 
 /// プリセットディレクトリを取得する
@@ -61,7 +61,7 @@ pub fn get_preset_dir() -> Result<PathBuf, BallistaError> {
 }
 
 /// プリセットを保存する
-pub fn save_preset(name: &str, description: Option<&str>, data: &ModdingXmlData) -> Result<PathBuf, BallistaError> {
+pub fn save_preset(name: &str, description: Option<&str>, data: &ModListData) -> Result<PathBuf, BallistaError> {
     trace_fn!("save_preset(name: {}, description: {:?})", name, description);
     
     // プリセット名のバリデーション

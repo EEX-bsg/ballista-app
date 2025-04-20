@@ -40,7 +40,7 @@ pub struct ModInfo {
 
 /// Modding.xmlのデータを表す構造体
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModdingXmlData {
+pub struct ModListData {
     /// 有効なMODのリスト
     pub enabled_mods: Vec<ModInfo>,
     /// 無効なMODのリスト
@@ -49,12 +49,12 @@ pub struct ModdingXmlData {
     pub game_version: Option<String>
 }
 
-impl ModdingXmlData {
+impl ModListData {
     /// XMLからJSONデータを生成する
     pub fn from_xml(xml_content: &str) -> Result<Self, BallistaError> {
         let xml_data = parse_modding_xml(xml_content)?;
 
-        Ok(ModdingXmlData {
+        Ok(ModListData {
             enabled_mods: xml_data.enabled_mods,
             disabled_mods: xml_data.disabled_mods,
             game_version: xml_data.game_version,
@@ -63,7 +63,7 @@ impl ModdingXmlData {
 
     /// JSONからXMLデータを生成する
     pub fn to_xml(&self) -> Result<String, BallistaError> {
-        let xml_data = ModdingXmlData {
+        let xml_data = ModListData {
             enabled_mods: self.enabled_mods.clone(),
             disabled_mods: self.disabled_mods.clone(),
             game_version: self.game_version.clone(),
@@ -104,13 +104,13 @@ pub fn read_modding_xml(file_path: &Path) -> Result<String, BallistaError> {
 }
 
 /// Modding.xmlファイルを読み込みJSONデータを返す
-pub fn read_modding_xml_as_json(file_path: &Path) -> Result<ModdingXmlData, BallistaError> {
+pub fn read_modding_xml_as_json(file_path: &Path) -> Result<ModListData, BallistaError> {
     let xml_content = read_modding_xml(file_path)?;
-    ModdingXmlData::from_xml(&xml_content)
+    ModListData::from_xml(&xml_content)
 }
 
 /// JSONデータをModding.xmlファイルに書き込む
-pub fn write_modding_xml_from_json(file_path: &Path, data: &ModdingXmlData) -> Result<(), BallistaError> {
+pub fn write_modding_xml_from_json(file_path: &Path, data: &ModListData) -> Result<(), BallistaError> {
     let xml_content = data.to_xml()?;
     fs::write(file_path, xml_content)
         .map_err(|e| BallistaError::FileError {
@@ -120,7 +120,7 @@ pub fn write_modding_xml_from_json(file_path: &Path, data: &ModdingXmlData) -> R
 }
 
 /// Modding.xmlファイルを解析する
-pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, BallistaError> {
+pub fn parse_modding_xml(content: &str) -> Result<ModListData, BallistaError> {
     trace_fn!("parse_modding_xml(content: {} bytes)", content.len());
     
     let mut reader = Reader::from_str(content);
@@ -266,7 +266,7 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, BallistaError>
     info!("XMLの解析が完了しました: 有効なモッド {}, 無効なモッド {}",
             enabled_mods.len(), disabled_mods.len());
     
-    Ok(ModdingXmlData {
+    Ok(ModListData {
         enabled_mods,
         disabled_mods,
         game_version
@@ -276,7 +276,7 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, BallistaError>
 
 /// XMLを生成する
 ///
-/// ModdingXmlDataからModding.xmlの内容を生成します。
+/// ModListDataからModding.xmlの内容を生成します。
 ///
 /// # 引数
 ///
@@ -285,7 +285,7 @@ pub fn parse_modding_xml(content: &str) -> Result<ModdingXmlData, BallistaError>
 /// # 戻り値
 ///
 /// 生成されたXML文字列、またはエラーメッセージ
-pub fn generate_xml(data: &ModdingXmlData) -> Result<String, BallistaError> {
+pub fn generate_xml(data: &ModListData) -> Result<String, BallistaError> {
     trace_fn!("generate_xml(data)");
     
     let mut writer = Writer::new(Vec::new());
@@ -363,17 +363,17 @@ pub fn generate_xml(data: &ModdingXmlData) -> Result<String, BallistaError> {
         
         // MOD情報を~で区切って書き込む
         let mod_str = if mod_info.source == "W" && mod_info.workshop_id.is_some() {
-            format!("{}~{}~{}~{}~{}", 
-                mod_info.uuid, 
-                mod_info.source, 
-                mod_info.workshop_id.as_ref().unwrap(), 
-                mod_info.version, 
+            format!("{}~{}~{}~{}~{}",
+                mod_info.uuid,
+                mod_info.source,
+                mod_info.workshop_id.as_ref().unwrap(),
+                mod_info.version,
                 mod_info.name)
         } else {
-            format!("{}~{}~~{}~{}", 
-                mod_info.uuid, 
-                mod_info.source, 
-                mod_info.version, 
+            format!("{}~{}~~{}~{}",
+                mod_info.uuid,
+                mod_info.source,
+                mod_info.version,
                 mod_info.name)
         };
         
@@ -436,43 +436,6 @@ pub fn generate_xml(data: &ModdingXmlData) -> Result<String, BallistaError> {
     Ok(result)
 }
 
-/// MODの有効/無効状態を切り替える
-///
-/// 指定されたUUIDのMODの有効/無効状態を反転させます。
-///
-/// # 引数
-///
-/// * `data` - MODデータ（変更される）
-/// * `uuid` - 切り替え対象のMODのUUID
-///
-/// # 戻り値
-///
-/// 成功した場合はOk、失敗した場合はエラーメッセージ
-pub fn toggle_mod_enabled(data: &mut ModdingXmlData, uuid: &str) -> Result<(), BallistaError> {
-    trace_fn!("toggle_mod_enabled(uuid: {})", uuid);
-    
-    // 有効なMODリストから探す
-    if let Some(pos) = data.enabled_mods.iter().position(|m| m.uuid == uuid) {
-        let mut mod_info = data.enabled_mods.remove(pos);
-        mod_info.enabled = false;
-        data.disabled_mods.push(mod_info);
-        return Ok(());
-    }
-    
-    // 無効なMODリストから探す
-    if let Some(pos) = data.disabled_mods.iter().position(|m| m.uuid == uuid) {
-        let mut mod_info = data.disabled_mods.remove(pos);
-        mod_info.enabled = true;
-        data.enabled_mods.push(mod_info);
-        return Ok(());
-    }
-    
-    Err(BallistaError::PresetError {
-        message: format!("指定されたUUIDのMODが見つかりません: {}", uuid),
-        context_info: String::new(),
-    })
-}
-
 /// MOD情報を取得する
 ///
 /// 指定されたUUIDのMOD情報を検索します。
@@ -485,7 +448,7 @@ pub fn toggle_mod_enabled(data: &mut ModdingXmlData, uuid: &str) -> Result<(), B
 /// # 戻り値
 ///
 /// MOD情報（見つかった場合）またはNone（見つからなかった場合）
-pub fn get_mod_info(data: &ModdingXmlData, uuid: &str) -> Option<ModInfo> {
+pub fn get_mod_info(data: &ModListData, uuid: &str) -> Option<ModInfo> {
     trace_fn!("get_mod_info(uuid: {})", uuid);
     
     // 有効なMODリストから探す

@@ -109,11 +109,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .invoke_handler(tauri::generate_handler![
             // ファイル操作系API
-            api::file_operations::select_modding_xml,
-            api::file_operations::read_modding_xml,
-            // api::file_operations::write_modding_xml,
-            // api::file_operations::validate_path,
-            
+
+
             // XML操作系API
             // api::xml_operations::toggle_mod_enabled,
             // api::xml_operations::get_mod_info,
